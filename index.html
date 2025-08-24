@@ -4,104 +4,12 @@
   <meta charset="UTF-8" />
   <title>The Darling Draft Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- CSV parser -->
+
+  <!-- CSV + Excel parsers -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <!-- Excel parser for H2H stats -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    :root{
-      --bg:#f6f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
-      --row:#ffffff; --row-alt:#fafbff; --success:#16a34a; --danger:#dc2626; --accent:#2563eb;
-      --header:#0f172a;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,"Helvetica Neue",Arial;
-      display:flex; flex-direction:column; height:100vh;
-    }
-    header{
-      color:#fff; padding:42px 16px; text-align:center;
-      background-image:url('IMG_3173.jpeg'); background-size:cover; background-position:center;
-      position:relative;
-    }
-    header::after{content:""; position:absolute; inset:0; background:rgba(0,0,0,.35)}
-    header .inner{position:relative; z-index:1}
-    header h1{margin:0; font-size:38px; letter-spacing:.5px; text-shadow:0 2px 8px rgba(0,0,0,.5)}
-    header h2{margin:8px 0 0; font-weight:500; text-shadow:0 1px 6px rgba(0,0,0,.5)}
-    .banners{position:absolute; left:16px; top:16px; z-index:2; display:flex; gap:8px}
-    .banner{background:#ffd700;color:#111; padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.25)}
 
-    main{
-      flex:1; display:flex; gap:16px; padding:16px; overflow:hidden; min-height:0;
-    }
-    .main{flex:3; display:flex; flex-direction:column; overflow:hidden; min-height:0;}
-    .sidebar{flex:1; display:flex; flex-direction:column; gap:12px; overflow:hidden; min-height:0;}
-    .sidebar-scroll{display:flex; flex-direction:column; gap:12px; overflow:auto; min-height:0;}
-
-    .card{background:var(--panel); border:1px solid var(--border);
-      border-radius:12px; padding:12px; box-shadow:0 1px 1px rgba(0,0,0,.02)}
-    .card h3{margin:4px 0 10px; font-size:16px}
-
-    .controls{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center}
-    .controls input[type="text"], .controls select, .controls input[type="file"]{
-      padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text);
-      font-size:14px;
-    }
-    .hidden{display:none !important}
-
-    /* Table */
-    .table-wrap{flex:1; overflow:auto; border:1px solid var(--border);
-      border-radius:12px; background:#fff; min-height:0;}
-    table{width:100%; border-collapse:separate; border-spacing:0}
-    thead th{
-      position:sticky; top:0; z-index:2; background:var(--header); color:#fff;
-      font-weight:600; text-align:left; padding:10px; font-size:13px; letter-spacing:.02em;
-    }
-    tbody td{padding:10px; border-top:1px solid var(--border); font-size:14px; vertical-align:middle}
-    tbody tr{background:var(--row); transition:background .12s ease}
-    tbody tr:nth-child(even){background:var(--row-alt)}
-    tbody tr:hover{background:#f0f6ff}
-    tbody tr.drafted{background:#f3f4f6 !important; color:#6b7280; text-decoration:line-through}
-    .badge{display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid var(--border); background:#fff}
-    .badge.fire{border-color:#ffedd5; background:#fff7ed}
-
-    /* Buttons (pill style) */
-    .btn{display:inline-inline; border:1px solid var(--border); background:#fff; color:#111;
-         padding:6px 10px; border-radius:999px; font-size:12px; cursor:pointer; transition:all .15s; margin:0 2px}
-    .btn:hover{transform:translateY(-1px); box-shadow:0 1px 2px rgba(0,0,0,.06)}
-    .btn:active{transform:translateY(0)}
-    .btn.primary{background:var(--success); color:#fff; border-color:transparent}
-    .btn.ghost{background:#fff; color:#374151}
-    .btn.danger{background:var(--danger); color:#fff; border-color:transparent}
-    .btn.reset{background:#111827; color:#fff; border-color:#111827}
-
-    /* Position colors */
-    .QB{color:#0ea5e9; font-weight:600}
-    .RB{color:#22c55e; font-weight:600}
-    .WR{color:#fb923c; font-weight:600}
-    .TE{color:#a78bfa; font-weight:600}
-    .DST{color:#ef4444; font-weight:600}
-    .K{color:#6b7280; font-weight:600}
-
-    .slot{display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px dashed var(--border)}
-    .slot:first-child{border-top:none}
-    .empty{color:var(--muted); font-style:italic}
-
-    .muted{color:var(--muted)}
-    .kpi{display:flex; gap:8px; flex-wrap:wrap}
-    .pill{background:#f1f5f9; border:1px solid var(--border); color:#0f172a; padding:6px 10px; border-radius:999px; font-size:12px}
-
-    .needs{display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 10px}
-    .need{border:1px solid var(--border); border-radius:999px; padding:4px 8px; font-size:12px; background:#fff}
-    .need.ok{opacity:.5}
-
-    .progress{height:10px; background:#eef2ff; border-radius:999px; overflow:hidden; border:1px solid var(--border)}
-    .progress > div{height:100%; width:0; background:#2563eb}
-
-    .warnings{margin-top:8px; display:flex; gap:6px; flex-wrap:wrap}
-    .warn{background:#fff7ed; border:1px solid #ffedd5; color:#9a3412; padding:4px 8px; border-radius:999px; font-size:12px}
-  </style>
+  <!-- Your CSS -->
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <header>
@@ -136,10 +44,10 @@
             <option value="available">Available Only</option>
             <option value="drafted">Drafted Only</option>
           </select>
-          <input type="file" id="csvFile" accept=".csv" title="Load FantasyPros CSV" />
-          <input type="file" id="h2hFile" accept=".xlsx,.xls" title="Load H2H.xlsx (optional)" />
+          <!-- Keep manual CSV upload -->
+          <input type="file" id="csvFile" accept=".csv" title="Upload FantasyPros CSV" />
           <span style="flex:1"></span>
-          <button class="btn reset" id="resetBtn" title="Clear roster and un-draft everyone">Reset Draft</button>
+          <button class="btn reset" id="resetBtn">Reset Draft</button>
         </div>
 
         <div class="table-wrap">
@@ -157,13 +65,10 @@
             <tbody></tbody>
           </table>
         </div>
-        <div class="muted" style="padding-top:8px;font-size:12px">
-          Tip: Use “Available Only” to hide greyed-out players that other teams drafted.
-        </div>
       </div>
     </div>
 
-    <!-- RIGHT: Stats + Roster in a dedicated scroll container -->
+    <!-- RIGHT: Stats + Roster -->
     <div class="sidebar">
       <div class="sidebar-scroll">
         <div class="card" id="statsCard">
@@ -174,18 +79,14 @@
             <div class="pill">🔥 12-2 in 2022</div>
             <div class="pill">📈 85-60-1 all-time</div>
           </div>
-          <div id="rivalry">
-            <div class="muted">Load <strong>H2H.xlsx</strong> to see Rivalry Stats.</div>
-          </div>
+          <div id="rivalry"></div>
           <div id="trashTalk" class="muted" style="margin-top:8px"></div>
         </div>
 
         <div class="card">
           <h3>My Team</h3>
           <div class="needs" id="needsBar"></div>
-          <div class="progress" title="Starters filled">
-            <div id="progressFill"></div>
-          </div>
+          <div class="progress"><div id="progressFill"></div></div>
           <div class="warnings" id="byeWarnings"></div>
           <div id="rosterSlots" style="margin-top:8px"></div>
         </div>
@@ -193,447 +94,11 @@
     </div>
   </main>
 
-  <!-- Tiny cheer on draft -->
   <audio id="cheer" preload="auto">
     <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA..." type="audio/mp3">
   </audio>
 
-<script>
-/* -------------------------------
-   State
---------------------------------*/
-let players = [];
-let sortCol = null, sortAsc = true;
-
-const rosterConfig = [
-  { slot: "QB", limit: 1 },
-  { slot: "RB", limit: 2 },
-  { slot: "WR", limit: 2 },
-  { slot: "TE", limit: 1 },
-  { slot: "FLEX", limit: 1, flex:true }, // RB/WR/TE eligible
-  { slot: "DST", limit: 1 },
-  { slot: "K", limit: 1 },
-  { slot: "BENCH", limit: 7 }
-];
-let roster = {};
-rosterConfig.forEach(rc => roster[rc.slot] = []);
-
-let rivalryTable = null; // filled from H2H.xlsx
-
-/* -------------------------------
-   Helpers
---------------------------------*/
-const byId = (id) => players.find(p => p._id === id);
-function assignIds() {
-  players.forEach((p, idx) => p._id = (crypto.randomUUID ? crypto.randomUUID() : ('id_' + (Date.now()+idx))));
-}
-const startersTotal = 9; // QB(1)+RB(2)+WR(2)+TE(1)+FLEX(1)+DST(1)+K(1)
-
-/* Compute bench/slot helpers */
-function countInSlot(slot) { return roster[slot].length; }
-function openSlots(slot) { return rosterConfig.find(rc=>rc.slot===slot).limit - countInSlot(slot); }
-
-/* Needs & warnings */
-function computeNeeds(){
-  return {
-    QB: openSlots("QB"),
-    RB: openSlots("RB"),
-    WR: openSlots("WR"),
-    TE: openSlots("TE"),
-    FLEX: openSlots("FLEX"),
-    DST: openSlots("DST"),
-    K: openSlots("K"),
-    BENCH: openSlots("BENCH")
-  };
-}
-
-function computeStartersFilled(){
-  let filled = 0;
-  ["QB","RB","WR","TE","FLEX","DST","K"].forEach(s=>filled += countInSlot(s));
-  return filled;
-}
-
-/* Bye-week warnings: detect duplicate starter byes per position group */
-function computeByeWarnings(){
-  const warns = [];
-  const byes = { QB:{}, RB:{}, WR:{}, TE:{}, DST:{}, K:{} };
-
-  // Count starters' byes; Flex counts toward its underlying position
-  function addBye(slotPlayer){
-    if (!slotPlayer) return;
-    const bye = slotPlayer.BYE;
-    const pos = (slotPlayer.POS || "").replace(/[0-9]/g, "");
-    if (!bye) return;
-    if (!byes[pos]) return;
-    byes[pos][bye] = (byes[pos][bye]||0) + 1;
-  }
-
-  // Add each starter slot
-  ["QB","RB","WR","TE","DST","K"].forEach(s=>{
-    roster[s].forEach(addBye);
-  });
-  // Flex slot
-  roster["FLEX"].forEach(p=>addBye(p));
-
-  // Build warnings when any bye count >=2 for groups with multiple starters (RB, WR) or flex collisions
-  Object.entries(byes).forEach(([pos, map])=>{
-    Object.entries(map).forEach(([wk,count])=>{
-      const multiPosition = (pos==="RB" || pos==="WR");
-      if ((multiPosition && count>=2) || (!multiPosition && count>=1 && pos==="FLEX")){} // (no-op; FLEX handled above)
-      if ((pos==="RB" || pos==="WR") && count>=2) warns.push(`${pos} bye week ${wk} x${count}`);
-      // single positions (QB/TE/DST/K) don't warn unless you want a heads-up; we’ll keep it to multi-starter positions.
-    });
-  });
-  return warns;
-}
-
-/* Value pick: if ECR VS ADP <= -3 (expert ranking much higher than ADP), show "🔥 Value" */
-function isValuePick(p){
-  const delta = parseFloat(p["ECR VS ADP"]);
-  return !isNaN(delta) && delta <= -3;
-}
-
-/* Tiny cheer */
-function cheer(){ try{ document.getElementById("cheer").play(); }catch(e){} }
-
-/* -------------------------------
-   CSV Load (FantasyPros)
---------------------------------*/
-document.getElementById("csvFile").addEventListener("change", function(e) {
-  Papa.parse(e.target.files[0], {
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-      players = results.data.filter(r => r["PLAYER NAME"]); // ignore blank rows
-      assignIds();
-      renderTable(); renderRoster(); renderNeedsAndWarnings(); updateProgress();
-      // Hide file input for cleaner look
-      document.getElementById("csvFile").classList.add("hidden");
-      maybeHideFileRow();
-    }
-  });
-});
-
-/* -------------------------------
-   Excel Load (H2H.xlsx) for Rivalry
-   Parsing: detect blocks where row like [*, "Joe", "<Opponent>", "Date", *]
---------------------------------*/
-document.getElementById("h2hFile").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const data = await file.arrayBuffer();
-  const wb = XLSX.read(data, { type: "array" });
-
-  const joeSheet = wb.Sheets["Joe"];
-  let perOpp = {}; // name -> {w,l,t,pf,pa,g}
-  if (joeSheet){
-    const rows = XLSX.utils.sheet_to_json(joeSheet, { header:1, raw:true });
-    let currentOpponent = null;
-
-    for (let r=0; r<rows.length; r++){
-      const row = rows[r] || [];
-      const c1 = row[1]; // Joe col
-      const c2 = row[2]; // Opp col
-
-      // Header like: [*, "Joe", "Zook", "Date", *]
-      if (typeof c1 === "string" && typeof c2 === "string" && c1.toLowerCase().includes("joe")){
-        currentOpponent = String(c2).trim();
-        if (!perOpp[currentOpponent]) perOpp[currentOpponent] = {w:0,l:0,t:0,pf:0,pa:0,g:0};
-        continue;
-      }
-
-      // Game row: numeric scores for Joe and Opp
-      const joeScore = parseFloat(c1);
-      const oppScore = parseFloat(c2);
-      if (!isNaN(joeScore) && !isNaN(oppScore) && currentOpponent){
-        const rec = perOpp[currentOpponent];
-        rec.pf += joeScore; rec.pa += oppScore; rec.g += 1;
-        if (joeScore > oppScore) rec.w += 1;
-        else if (joeScore < oppScore) rec.l += 1;
-        else rec.t += 1;
-      }
-    }
-  }
-
-  rivalryTable = perOpp;
-  renderRivalry(perOpp);
-
-  // Hide file input for cleaner look
-  document.getElementById("h2hFile").classList.add("hidden");
-  maybeHideFileRow();
-});
-
-/* Hide the file inputs container if both are loaded/hidden */
-function maybeHideFileRow(){
-  const csvHidden = document.getElementById("csvFile").classList.contains("hidden");
-  const h2hHidden = document.getElementById("h2hFile").classList.contains("hidden");
-  if (csvHidden && h2hHidden){
-    // Keep Reset button and filters, hide just the file pickers visually by shrinking their space
-    // Already hidden by class, so nothing else needed
-  }
-}
-
-/* -------------------------------
-   Rivalry render + trash talk
---------------------------------*/
-function renderRivalry(perOpp){
-  const entries = Object.entries(perOpp || {}).filter(([_, r])=>r.g>0);
-  let html = `<h3 style="margin:4px 0 8px">Rivalry Stats</h3>`;
-
-  if (!entries.length){
-    html += `<div class="muted">Couldn’t parse head-to-head rows. If headers differ from “Joe | Opponent”, tell me the exact header text.</div>`;
-    document.getElementById("rivalry").innerHTML = html;
-    return;
-  }
-
-  // Biggest Rival = closest to .500 among frequent opponents (>=5 games)
-  let rival = null, rivalScore = Infinity;
-  // Frequent Victim = highest win% among frequent opponents (>=5 games)
-  let victim = null, bestWinPct = -1;
-
-  entries.forEach(([name, r])=>{
-    const winPct = (r.w + 0.5*r.t) / r.g;
-    if (r.g >= 5 && Math.abs(winPct - 0.5) < rivalScore){ rivalScore = Math.abs(winPct-0.5); rival = {name, ...r, winPct}; }
-    if (r.g >= 5 && winPct > bestWinPct){ bestWinPct = winPct; victim = {name, ...r, winPct}; }
-  });
-
-  html += `<div class="kpi" style="margin-bottom:8px">`;
-  if (rival) html += `<div class="pill">👊 Biggest Rival: ${rival.name} (${rival.w}-${rival.l}${rival.t?'-'+rival.t:''})</div>`;
-  if (victim) html += `<div class="pill">🧹 Frequent Victim: ${victim.name} (${victim.w}-${victim.l}${victim.t?'-'+victim.t:''})</div>`;
-  html += `</div>`;
-
-  // Detailed table per opponent
-  html += `<table style="width:100%; border-collapse:separate; border-spacing:0; font-size:12px">
-    <thead>
-      <tr>
-        <th style="text-align:left;padding:6px;border-bottom:1px solid var(--border)">Opponent</th>
-        <th style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">Record</th>
-        <th style="text-align:right;padding:6px;border-bottom:1px solid var(--border)">PF</th>
-        <th style="text-align:right;padding:6px;border-bottom:1px solid var(--border)">PA</th>
-        <th style="text-align:right;padding:6px;border-bottom:1px solid var(--border)">Win%</th>
-        <th style="text-align:right;padding:6px;border-bottom:1px solid var(--border)">G</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  entries.sort((a,b)=>{
-    const ra=a[1], rb=b[1];
-    const wa=(ra.w+0.5*ra.t)/ra.g, wb=(rb.w+0.5*rb.t)/rb.g;
-    if (wb!==wa) return wb-wa;
-    return rb.g - ra.g;
-  });
-
-  entries.forEach(([name, r])=>{
-    const winPct = (r.w + 0.5*r.t) / r.g;
-    html += `<tr>
-      <td style="padding:6px;border-bottom:1px solid var(--border)">${name}</td>
-      <td style="padding:6px;text-align:center;border-bottom:1px solid var(--border)">${r.w}-${r.l}${r.t?'-'+r.t:''}</td>
-      <td style="padding:6px;text-align:right;border-bottom:1px solid var(--border)">${r.pf.toFixed(1)}</td>
-      <td style="padding:6px;text-align:right;border-bottom:1px solid var(--border)">${r.pa.toFixed(1)}</td>
-      <td style="padding:6px;text-align:right;border-bottom:1px solid var(--border)">${(winPct*100).toFixed(1)}%</td>
-      <td style="padding:6px;text-align:right;border-bottom:1px solid var(--border)">${r.g}</td>
-    </tr>`;
-  });
-  html += `</tbody></table>`;
-
-  document.getElementById("rivalry").innerHTML = html;
-
-  // Trash talk generator (simple)
-  const lines = [];
-  if (victim) lines.push(`Pro tip: don’t let ${victim.name} catch a break — you’ve owned that matchup.`);
-  if (rival)  lines.push(`Eyes up for ${rival.name}: it’s always a coin flip. Make every pick count.`);
-  document.getElementById("trashTalk").textContent = lines.join(" ");
-}
-
-/* -------------------------------
-   Rendering: Table
---------------------------------*/
-function renderTable() {
-  const search = document.getElementById("search").value.toLowerCase();
-  const pos = document.getElementById("positionFilter").value;
-  const avail = document.getElementById("availabilityFilter").value;
-
-  let filtered = players.filter(p => {
-    const name = (p["PLAYER NAME"] || "").toLowerCase();
-    const team = (p.TEAM || "").toLowerCase();
-    const matchesSearch = name.includes(search) || team.includes(search);
-    let matchesPos = true;
-    if (pos === "FLEX") {
-      matchesPos = p.POS && (p.POS.startsWith("RB") || p.POS.startsWith("WR") || p.POS.startsWith("TE"));
-    } else if (pos !== "") {
-      matchesPos = (p.POS || "").toUpperCase().startsWith(pos);
-    }
-    if (avail === "available" && p._drafted) return false;
-    if (avail === "drafted" && !p._drafted) return false;
-    return matchesSearch && matchesPos;
-  });
-
-  // Sort by chosen column (numeric-aware), then push drafted to bottom
-  if (sortCol) {
-    filtered.sort((a,b) => {
-      let va = a[sortCol], vb = b[sortCol];
-      const na = !isNaN(parseFloat(va)), nb = !isNaN(parseFloat(vb));
-      if (na && nb){ va = parseFloat(va); vb = parseFloat(vb); }
-      if (va < vb) return sortAsc ? -1 : 1;
-      if (va > vb) return sortAsc ? 1 : -1;
-      return 0;
-    });
-  }
-  filtered.sort((a,b) => (a._drafted === b._drafted) ? 0 : (a._drafted ? 1 : -1));
-
-  const tbody = document.querySelector("#playersTable tbody");
-  tbody.innerHTML = "";
-  filtered.forEach(p => {
-    const tr = document.createElement("tr");
-    if (p._drafted) tr.classList.add("drafted");
-
-    const posClass = (p.POS || "").replace(/[0-9]/g,"");
-    const valueBadge = isValuePick(p) ? `<span class="badge fire">🔥 value</span>` : "";
-
-    tr.innerHTML = `
-      <td>${p.RK ?? ""}</td>
-      <td>${p["PLAYER NAME"] ?? ""} ${valueBadge}</td>
-      <td class="${posClass}">${p.POS ?? ""}</td>
-      <td>${p.TEAM ?? ""}</td>
-      <td>${p.BYE ?? ""}</td>
-      <td>
-        ${!p._drafted
-          ? `<button class="btn primary" onclick="draftPlayer('${p._id}')">Draft</button>
-             <button class="btn ghost" onclick="otherDrafted('${p._id}')">Other Team</button>`
-          : `<button class="btn danger" onclick="undraft('${p._id}')">Undo</button>`}
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-/* -------------------------------
-   Rendering: Roster + Needs + Warnings + Progress
---------------------------------*/
-function renderRoster() {
-  const div = document.getElementById("rosterSlots");
-  div.innerHTML = "";
-  rosterConfig.forEach(rc => {
-    for (let i=0; i<rc.limit; i++){
-      const player = roster[rc.slot][i];
-      const posClass = player ? (player.POS||"").replace(/[0-9]/g,"") : "";
-      const row = document.createElement("div");
-      row.className = "slot";
-      row.innerHTML = `<div><strong>${rc.slot}</strong>: ${
-        player
-          ? `<span class="${posClass}">${player["PLAYER NAME"]} (${player.POS})</span>`
-          : `<span class="empty">empty</span>`
-      }</div>
-      <div>
-        ${player ? `<button class="btn danger" onclick="removeFromRoster('${rc.slot}',${i})">Remove</button>` : ""}
-      </div>`;
-      div.appendChild(row);
-    }
-  });
-  renderNeedsAndWarnings(); updateProgress();
-}
-
-function renderNeedsAndWarnings(){
-  const needs = computeNeeds();
-  const bar = document.getElementById("needsBar");
-  bar.innerHTML = "";
-  ["QB","RB","WR","TE","FLEX","DST","K","BENCH"].forEach(pos=>{
-    const pill = document.createElement("div");
-    pill.className = "need" + (needs[pos] <= 0 ? " ok" : "");
-    pill.textContent = `${pos}: ${Math.max(0,needs[pos])}`;
-    bar.appendChild(pill);
-  });
-
-  const warns = computeByeWarnings();
-  const bw = document.getElementById("byeWarnings");
-  bw.innerHTML = "";
-  warns.forEach(w => {
-    const span = document.createElement("div");
-    span.className = "warn";
-    span.textContent = `⚠️ ${w}`;
-    bw.appendChild(span);
-  });
-}
-
-function updateProgress(){
-  const filled = computeStartersFilled();
-  const pct = Math.max(0, Math.min(100, Math.round((filled / startersTotal) * 100)));
-  document.getElementById("progressFill").style.width = pct + "%";
-}
-
-/* -------------------------------
-   Actions
---------------------------------*/
-function draftPlayer(id) {
-  const player = byId(id);
-  if (!player) return;
-  player._drafted = true;
-
-  // Fill starters first, then FLEX, then BENCH
-  let placed = false;
-  for (let rc of rosterConfig) {
-    if (rc.flex) continue;
-    if (player.POS && player.POS.startsWith(rc.slot) && roster[rc.slot].length < rc.limit) {
-      roster[rc.slot].push(player);
-      placed = true; break;
-    }
-  }
-  if (!placed) {
-    const isFlex = player.POS && (player.POS.startsWith("RB") || player.POS.startsWith("WR") || player.POS.startsWith("TE"));
-    if (isFlex && roster["FLEX"].length < 1) {
-      roster["FLEX"].push(player);
-      placed = true;
-    }
-  }
-  if (!placed && roster["BENCH"].length < 7) {
-    roster["BENCH"].push(player);
-  }
-  cheer();
-  renderTable(); renderRoster();
-}
-
-function otherDrafted(id) {
-  const player = byId(id);
-  if (player){ player._drafted = true; renderTable(); }
-}
-
-function undraft(id) {
-  const player = byId(id);
-  if (!player) return;
-  player._drafted = false;
-  // Remove from any roster slot
-  for (const slot in roster){
-    roster[slot] = roster[slot].filter(p => p._id !== id);
-  }
-  renderTable(); renderRoster();
-}
-
-function removeFromRoster(slot, i) {
-  const player = roster[slot][i];
-  if (player) player._drafted = false;
-  roster[slot].splice(i,1);
-  renderTable(); renderRoster();
-}
-
-document.getElementById("resetBtn").addEventListener("click", ()=>{
-  players.forEach(p => p._drafted = false);
-  Object.keys(roster).forEach(k => roster[k] = []);
-  renderTable(); renderRoster();
-});
-
-/* -------------------------------
-   Events
---------------------------------*/
-document.getElementById("search").addEventListener("input", renderTable);
-document.getElementById("positionFilter").addEventListener("change", renderTable);
-document.getElementById("availabilityFilter").addEventListener("change", renderTable);
-
-document.querySelectorAll("#playersTable th[data-col]").forEach(th=>{
-  th.addEventListener("click", ()=>{
-    const col = th.getAttribute("data-col");
-    if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
-    renderTable();
-  });
-});
-</script>
+  <!-- Your JS -->
+  <script src="js/app.js" defer></script>
 </body>
 </html>
