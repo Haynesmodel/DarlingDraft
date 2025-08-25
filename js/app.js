@@ -460,9 +460,9 @@ function renderTopHighlights(team){
 
   // Saunders YEARS: either explicit boolean OR any Saunders W/L present
   const sauYears = rows
-    .filter(r => r.saunders === true || ((r.saunders_wins||0) + (r.saunders_losses||0) + (r.saunders_ties||0) > 0))
-    .map(r => r.season)
-    .sort((a,b) => b - a);
+  .filter(r => r.saunders === true)
+  .map(r => r.season)
+  .sort((a,b) => b - a);
 
   // Outcome Record = Playoffs + Saunders across all seasons
   let oW = 0, oL = 0, oT = 0;
