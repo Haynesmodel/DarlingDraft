@@ -1,9 +1,9 @@
 /* =========================================================
-   The Darling — Draft + League History
-   - Top highlights: Championships, Playoff Record, Saunders Record,
-     Saunders (years they were in the Saunders bracket)
-   - Draft sidebar shows Saunders YEARS (not record)
-   - Aggregated Stats: Regular, Playoff, Saunders records
+   The Darling — Draft + League History (Combined Outcome)
+   - Highlights: Championships, Outcome Record (Playoffs+Saunders), Saunders (years)
+   - Aggregated Stats: Regular vs Outcome
+   - Season Recap: single Outcome column
+   - Facets: multi-select checklists with "All", update after each click
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -68,7 +68,7 @@ function isSaundersGame(g){
   return t==="saunders" || r.includes("saunders");
 }
 function isRegularGame(g){ return normType(g.type)==="Regular"; }
-function isPlayoffGame(g){ return !isRegularGame(g) && !isSaundersGame(g); }
+function isOutcomeGame(g){ return !isRegularGame(g); } // playoffs OR saunders
 
 function inferWeekIndex(games){
   const sorted=[...games].sort(byDateAsc);
@@ -436,8 +436,7 @@ function renderHistory(){
   const teamSel=document.getElementById('teamSelect');
   if(teamSel && selectedTeam!==teamSel.value) selectedTeam=teamSel.value;
 
-  // Highlights card (uses ALL games)
-  renderPostseasonHighlights(selectedTeam);
+  renderTopHighlights(selectedTeam);
 
   const filtered = applyFacetFilters(leagueGames);
   renderAggStats(selectedTeam, filtered);
@@ -447,60 +446,59 @@ function renderHistory(){
   renderGamesTable(selectedTeam, filtered);
 }
 
-/* ---------- Postseason Highlights (no title) ---------- */
-function renderPostseasonHighlights(team){
+/* ---------- Top Highlights: Champs, Outcome, Saunders (years) ---------- */
+function renderTopHighlights(team){
   const grid = document.getElementById('teamOverviewGrid');
   if(!grid) return;
 
-  // Championships + years
-  const champs = seasonSummaries.filter(r=>r.owner===team && r.champion);
-  const champYears = champs.map(c=>c.season).sort((a,b)=>b-a);
+  const rows = seasonSummaries.filter(r => r.owner === team);
 
-  // Saunders (YEARS in the bracket)
-  const sauYears = seasonSummaries.filter(r=>r.owner===team && r.saunders).map(b=>b.season).sort((a,b)=>b-a);
+  const champYears = rows
+    .filter(r => r.champion)
+    .map(r => r.season)
+    .sort((a,b) => b - a);
 
-  // Records: Playoff vs Saunders
-  let plyW=0, plyL=0, plyT=0, sauW=0, sauL=0, sauT=0;
-  for(const g of leagueGames){
-    const s = sidesForTeam(g, team); if(!s) continue;
-    if(isRegularGame(g)) continue;
-    if(isSaundersGame(g)){
-      if(s.result==='W') sauW++; else if(s.result==='L') sauL++; else sauT++;
-    }else{
-      if(s.result==='W') plyW++; else if(s.result==='L') plyL++; else plyT++;
-    }
+  // Saunders YEARS: either explicit boolean OR any Saunders W/L present
+  const sauYears = rows
+    .filter(r => r.saunders === true || ((r.saunders_wins||0) + (r.saunders_losses||0) + (r.saunders_ties||0) > 0))
+    .map(r => r.season)
+    .sort((a,b) => b - a);
+
+  // Outcome Record = Playoffs + Saunders across all seasons
+  let oW = 0, oL = 0, oT = 0;
+  for (const r of rows) {
+    oW += (r.playoff_wins||0)     + (r.saunders_wins||0);
+    oL += (r.playoff_losses||0)   + (r.saunders_losses||0);
+    oT += (r.playoff_ties||0)     + (r.saunders_ties||0);
   }
 
-  const chip = (title, main, sub="", extraClass="")=>`
+  const chip = (title, main, sub="", extraClass="") => `
     <div class="overview-chip ${extraClass}">
       <h4>${title}</h4>
       <div class="big">${main}</div>
-      ${sub?`<div class="sub">${sub}</div>`:""}
+      ${sub ? `<div class="sub">${sub}</div>` : ""}
     </div>
   `;
 
   grid.innerHTML = [
-    chip("Championships", `${champYears.length}`, champYears.length?`Years: ${champYears.join(", ")}`:"—", "champs"),
-    chip("Playoff Record", `${plyW}-${plyL}-${plyT}`, `Win % ${fmtPct(plyW,plyL,plyT)}`),
-    chip("Saunders Record", `${sauW}-${sauL}-${sauT}`, `Win % ${fmtPct(sauW,sauL,sauT)}`, "sau"),
-    chip("Saunders", `${sauYears.length}`, sauYears.length?`Years: ${sauYears.join(", ")}`:"—", "sau")
+    chip("Championships", `${champYears.length}`, champYears.length ? `Years: ${champYears.join(", ")}` : "—", "champs"),
+    chip("Outcome Record", `${oW}-${oL}-${oT}`, `Win % ${fmtPct(oW,oL,oT)}`),
+    chip("Saunders", `${sauYears.length}`, sauYears.length ? `Years: ${sauYears.join(", ")}` : "—", "sau")
   ].join("");
 }
 
-/* ---- Aggregated Stats: Regular vs Playoff vs Saunders ---- */
+/* ---- Aggregated Stats: Regular vs Outcome ---- */
 function renderAggStats(team, games){
-  const reg=[], ply=[], sau=[];
+  const reg=[], out=[];
   for(const g of games){
     const s=sidesForTeam(g,team); if(!s) continue;
-    if(isRegularGame(g)) reg.push(s);
-    else if(isSaundersGame(g)) sau.push(s);
-    else ply.push(s);
+    if(isRegularGame(g)) reg.push(s); else out.push(s);
   }
   const count=(arr,res)=>arr.filter(s=>s.result===res).length;
   const rec=(arr)=>`${count(arr,'W')}-${count(arr,'L')}-${count(arr,'T')}`;
   const pct=(arr)=>fmtPct(count(arr,'W'),count(arr,'L'),count(arr,'T'));
 
-  const all=[...reg,...ply,...sau];
+  const all=[...reg,...out];
   const pf=sum(all.map(s=>s.pf)), pa=sum(all.map(s=>s.pa)), n=all.length;
   const ppg = n? (pf/n):0, oppg = n? (pa/n):0;
 
@@ -519,10 +517,8 @@ function renderAggStats(team, games){
   document.getElementById('aggStats').innerHTML = [
     stat('Reg Record', rec(reg)),
     stat('Reg Win %', pct(reg)),
-    stat('Playoff Record', rec(ply)),
-    stat('Playoff Win %', pct(ply)),
-    stat('Saunders Record', rec(sau)),
-    stat('Saunders Win %', pct(sau)),
+    stat('Outcome Record', rec(out)),
+    stat('Outcome Win %', pct(out)),
     stat('PPG', ppg.toFixed(2)),
     stat('OPPG', oppg.toFixed(2)),
     stat('Games', n),
@@ -544,8 +540,8 @@ function renderSeasonCallout(team){
     if(rec.champion) bits.push("🏆 Champion");
     if(rec.bye) bits.push("🔥 Top-2 Seed");
     if(rec.saunders) bits.push("🪦 Saunders Bracket");
-    if(rec.playoff_wins||rec.playoff_losses) bits.push(`Post: ${rec.playoff_wins||0}-${rec.playoff_losses||0}`);
-    if(rec.saunders_wins||rec.saunders_losses) bits.push(`Saunders: ${rec.saunders_wins||0}-${rec.saunders_losses||0}`);
+    if(rec.playoff_wins||rec.playoff_losses||rec.playoff_ties) bits.push(`Playoffs: ${(rec.playoff_wins||0)}-${(rec.playoff_losses||0)}-${(rec.playoff_ties||0)}`);
+    if(rec.saunders_wins||rec.saunders_losses||rec.saunders_ties) bits.push(`Saunders: ${(rec.saunders_wins||0)}-${(rec.saunders_losses||0)}-${(rec.saunders_ties||0)}`);
     const record=`${rec.wins}-${rec.losses}-${rec.ties||0}`;
     const pct=fmtPct(rec.wins, rec.losses, rec.ties||0);
     callout.innerHTML = `<div class="callout">
@@ -583,22 +579,37 @@ function renderOppBreakdown(team, games){
   `).join("");
 }
 
-/* ---- Season Recap ---- */
+/* ---- Season Recap (combined Outcome) ---- */
 function renderSeasonRecap(team){
   const tb=document.querySelector('#seasonRecapTable tbody'); if(!tb) return;
+
   let rows=seasonSummaries.filter(r=>r.owner===team);
-  if(isRestrictive(selectedSeasons, universe.seasons)) rows = rows.filter(r=>selectedSeasons.has(+r.season));
+  if(isRestrictive(selectedSeasons, universe.seasons)) {
+    rows = rows.filter(r=>selectedSeasons.has(+r.season));
+  }
   rows.sort((a,b)=>b.season-a.season);
-  const mkFinish=(r)=> r.champion? "Champion" : ((r.playoff_wins>0||r.playoff_losses>0)?`Playoffs (${r.playoff_wins||0}-${r.playoff_losses||0})` : (r.bye? "Top-2 Seed" : "—"));
-  const mkLoser=(r)=> (r.saunders_wins>0||r.saunders_losses>0)?`Saunders (${r.saunders_wins||0}-${r.saunders_losses||0})` : (r.saunders?"Saunders":"—");
+
+  const fmtTriplet = (w=0,l=0,t=0) => `${w||0}-${l||0}-${t||0}`;
+
+  const mkOutcome = (r)=>{
+    const pW=r.playoff_wins||0, pL=r.playoff_losses||0, pT=r.playoff_ties||0;
+    const sW=r.saunders_wins||0, sL=r.saunders_losses||0, sT=r.saunders_ties||0;
+
+    if (r.champion) return "Champion";
+    if ((pW+pL+pT) > 0) return `Playoffs (${fmtTriplet(pW,pL,pT)})`;
+    if (r.saunders === true || (sW+sL+sT) > 0) return `Saunders (${fmtTriplet(sW,sL,sT)})`;
+    if (r.bye) return "Top-2 Seed";
+    return "—";
+  };
+
   tb.innerHTML = rows.map(r=>`
     <tr>
       <td>${r.season}</td>
       <td>${r.wins}-${r.losses}-${r.ties||0}</td>
       <td>${fmtPct(r.wins,r.losses,r.ties||0)}</td>
-      <td>${mkFinish(r)}</td>
-      <td>${mkLoser(r)}</td>
-    </tr>`).join("");
+      <td>${mkOutcome(r)}</td>
+    </tr>
+  `).join("");
 }
 
 /* ---- Week-by-Week (newest → oldest) ---- */
@@ -670,47 +681,3 @@ function exportHistoryCsv(){
   const url=URL.createObjectURL(blob); const a=document.createElement('a');
   a.href=url; a.download=`history_${team}${seasonsSuffix}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
-
-/* ---------- Top Highlights: Champs, Outcome, Saunders (years) ---------- */
-function renderTopHighlights(team){
-  const grid = document.getElementById('teamOverviewGrid');
-  if(!grid) return;
-
-  // All season rows for this owner
-  const rows = seasonSummaries.filter(r => r.owner === team);
-
-  // Championships (years)
-  const champYears = rows
-    .filter(r => r.champion)
-    .map(r => r.season)
-    .sort((a,b) => b - a);
-
-  // Saunders YEARS: either explicit boolean OR any Saunders W/L present
-  const sauYears = rows
-    .filter(r => r.saunders === true || ((r.saunders_wins||0) + (r.saunders_losses||0) > 0))
-    .map(r => r.season)
-    .sort((a,b) => b - a);
-
-  // Outcome Record = Playoffs + Saunders across all seasons
-  let oW = 0, oL = 0, oT = 0;
-  for (const r of rows) {
-    oW += (r.playoff_wins||0)     + (r.saunders_wins||0);
-    oL += (r.playoff_losses||0)   + (r.saunders_losses||0);
-    oT += (r.playoff_ties||0)     + (r.saunders_ties||0); // ties likely 0, but supported if present
-  }
-
-  const chip = (title, main, sub="", extraClass="") => `
-    <div class="overview-chip ${extraClass}">
-      <h4>${title}</h4>
-      <div class="big">${main}</div>
-      ${sub ? `<div class="sub">${sub}</div>` : ""}
-    </div>
-  `;
-
-  grid.innerHTML = [
-    chip("Championships", `${champYears.length}`, champYears.length ? `Years: ${champYears.join(", ")}` : "—", "champs"),
-    chip("Outcome Record", `${oW}-${oL}-${oT}`, `Win % ${fmtPct(oW,oL,oT)}`),
-    chip("Saunders", `${sauYears.length}`, sauYears.length ? `Years: ${sauYears.join(", ")}` : "—", "sau")
-  ].join("");
-}
-

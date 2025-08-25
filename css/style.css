@@ -56,6 +56,7 @@ main{padding:16px}
 }
 .dropdown-menu label:hover{background:#f9fafb}
 .dropdown-menu input[type="checkbox"]{width:16px;height:16px;border:1px solid var(--border);border-radius:4px}
+.dropdown-menu .grid{display:flex;flex-direction:column}
 
 /* Tables */
 .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
@@ -84,6 +85,11 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 .badge.fire{border-color:#ffedd5;background:#fff7ed}
 .QB{color:#0ea5e9;font-weight:600}.RB{color:#22c55e;font-weight:600}.WR{color:#fb923c;font-weight:600}
 .TE{color:#a78bfa;font-weight:600}.DST{color:#ef4444;font-weight:600}.K{color:#6b7280;font-weight:600}
+
+/* Needs pills */
+.needs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.needs .need{border:1px solid var(--border);background:#fff;padding:4px 8px;border-radius:8px;font-size:12px}
+.needs .need.ok{opacity:.5}
 
 /* Stats + Callout */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
@@ -115,3 +121,8 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 .overview-chip .sub{font-size:12px;color:var(--muted);margin-top:4px}
 .overview-chip.champs{ box-shadow:inset 0 0 0 2px var(--champ-accent); }
 .overview-chip.sau{ box-shadow:inset 0 0 0 2px var(--sau-accent); }
+
+/* Rivalry table (sidebar) */
+.rivalry-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.rivalry-table th{background:#111827;color:#fff;padding:6px}
+.rivalry-table td{padding:6px;border-top:1px solid var(--border)}
