@@ -67,6 +67,10 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 .result-loss{background:var(--loss)!important}
 .result-tie{background:var(--tie)!important}
 
+/* Postseason rows pop */
+.postseason{position:relative;box-shadow:inset 4px 0 0 0 var(--sau-accent)}
+.postseason td{font-weight:600}
+
 /* Draft page extras */
 .sidebar{display:flex;flex-direction:column;gap:12px}
 .sidebar-scroll{display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:calc(100vh - 220px)}
