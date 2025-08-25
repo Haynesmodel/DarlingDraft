@@ -1,6 +1,7 @@
 /* =========================================================
    The Darling — Regular-season titles chip + header banners row,
    dedupe games, derived weeks, filters & stats
+   + Special asterisks/notes (Joel champs, Joe Saunders)
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -38,6 +39,28 @@ let universe = { seasons: [], weeks: [], opponents: [], types: [], rounds: [] };
 
 /* Derived weeks set */
 let derivedWeeksSet = new Set();
+
+/* ---------- Special title notes ---------- */
+/* Add any per-owner season notes here. These trigger asterisks (*) in UI. */
+const SPECIAL_TITLE_NOTES = {
+  Joel: {
+    champs: {
+      2014: "Singer not in league",
+      2020: "COVID season"
+    }
+  },
+  Joe: {
+    saunders: {
+      2015: "Saunders Bowl matchups incorrect" // change the year if needed
+    }
+  }
+};
+function champNote(owner, season){
+  return (SPECIAL_TITLE_NOTES[owner]?.champs?.[season]) || null;
+}
+function saundersNote(owner, season){
+  return (SPECIAL_TITLE_NOTES[owner]?.saunders?.[season]) || null;
+}
 
 /* ---------- Utils ---------- */
 const byId = (id)=>players.find(p=>p._id===id);
@@ -548,7 +571,7 @@ function renderHistory(){
   renderGamesTable(selectedTeam, filtered);
 }
 
-/* ---------- Top Highlights (now with Regular-Season Titles) ---------- */
+/* ---------- Top Highlights (with Regular-Season Titles & notes) ---------- */
 function renderTopHighlights(team){
   const grid = document.getElementById('teamOverviewGrid');
   if(!grid) return;
@@ -568,6 +591,15 @@ function renderTopHighlights(team){
   const sauYears   = rows.filter(r => r.saunders===true).map(r => r.season).sort((a,b)=>b-a);
   const regYears   = computeRegularSeasonChampYears(team, seasonSummaries).sort((a,b)=>b-a);
 
+  // Append * to years that have notes
+  const champsDisplay = champYears.map(y => champNote(team, y) ? `${y}*` : `${y}`);
+  const sauDisplay    = sauYears.map(y => saundersNote(team, y) ? `${y}*` : `${y}`);
+
+  // Collect footnotes for this team
+  const notes = [];
+  champYears.forEach(y => { const n = champNote(team, y); if(n) notes.push(`${y} — ${n}`); });
+  sauYears.forEach(y => { const n = saundersNote(team, y); if(n) notes.push(`${y} — ${n}`); });
+
   const chip = (title, main, sub="", extraClass="") => `
     <div class="overview-chip ${extraClass}">
       <h4>${title}</h4>
@@ -577,9 +609,10 @@ function renderTopHighlights(team){
   `;
 
   grid.innerHTML = [
-    chip("Darlings", `${champYears.length}`, champYears.length ? `Years: ${champYears.join(", ")}` : "—", "champs"),
-    chip("Saunders", `${sauYears.length}`, sauYears.length ? `Years: ${sauYears.join(", ")}` : "—", "sau"),
-    chip("Regular-Season Titles", `${regYears.length}`, regYears.length ? `Years: ${regYears.join(", ")}` : "—", "regs")
+    chip("Darlings", `${champYears.length}`, champYears.length ? `Years: ${champsDisplay.join(", ")}` : "—", "champs"),
+    chip("Saunders", `${sauYears.length}`, sauYears.length ? `Years: ${sauDisplay.join(", ")}` : "—", "sau"),
+    chip("Regular-Season Titles", `${regYears.length}`, regYears.length ? `Years: ${regYears.join(", ")}` : "—", "regs"),
+    notes.length ? `<div class="overview-chip"><h4>Notes</h4><div class="sub">* ${notes.join(" • ")}</div></div>` : ""
   ].join("");
 }
 
@@ -648,17 +681,21 @@ function renderSeasonCallout(team){
     const [onlySeason]=[...selectedSeasons];
     const rec=seasonSummaryLookup(team, onlySeason); if(!rec) return;
     const bits=[];
-    if(rec.champion) bits.push("🏆 Champion");
+    if(rec.champion) bits.push("🏆 Champion" + (champNote(team, onlySeason) ? "*" : ""));
     if(rec.bye) bits.push("🔥 Top-2 Seed");
-    if(rec.saunders) bits.push("🪦 Saunders Bracket");
+    if(rec.saunders) bits.push("🪦 Saunders" + (saundersNote(team, onlySeason) ? "*" : ""));
     if(rec.playoff_wins||rec.playoff_losses||rec.playoff_ties) bits.push(`Playoffs: ${(rec.playoff_wins||0)}-${(rec.playoff_losses||0)}-${(rec.playoff_ties||0)}`);
     if(rec.saunders_wins||rec.saunders_losses||rec.saunders_ties) bits.push(`Saunders: ${(rec.saunders_wins||0)}-${(rec.saunders_losses||0)}-${(rec.saunders_ties||0)}`);
     const record=`${rec.wins}-${rec.losses}-${rec.ties||0}`;
     const pct=fmtPct(rec.wins, rec.losses, rec.ties||0);
+    const notes = [];
+    const cN = champNote(team, onlySeason); if(cN) notes.push(`${onlySeason} — ${cN}`);
+    const sN = saundersNote(team, onlySeason); if(sN) notes.push(`${onlySeason} — ${sN}`);
     callout.innerHTML = `<div class="callout">
       <div>${team} in <strong>${onlySeason}</strong></div>
       <div>Record: <strong>${record}</strong> (${pct})</div>
       <div>${bits.join(" • ")||"—"}</div>
+      ${notes.length ? `<div class="muted" style="margin-top:6px;font-size:12px">* ${notes.join(" • ")}</div>` : ""}
     </div>`;
   }
 }
@@ -757,9 +794,9 @@ function renderSeasonRecap(team){
     const pW=r.playoff_wins||0, pL=r.playoff_losses||0, pT=r.playoff_ties||0;
     const sW=r.saunders_wins||0, sL=r.saunders_losses||0, sT=r.saunders_ties||0;
 
-    if (r.champion) return "Champion";
+    if (r.champion) return `Champion${champNote(team, +r.season) ? "*" : ""}`;
     if ((pW+pL+pT) > 0) return `Playoffs (${fmtTriplet(pW,pL,pT)})`;
-    if (r.saunders === true || (sW+sL+sT) > 0) return `Saunders (${fmtTriplet(sW,sL,sT)})`;
+    if (r.saunders === true || (sW+sL+sT) > 0) return `Saunders${saundersNote(team, +r.season) ? "*" : ""} (${fmtTriplet(sW,sL,sT)})`;
     if (r.bye) return "Top-2 Seed";
     return "—";
   };
