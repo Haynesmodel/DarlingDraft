@@ -1,7 +1,7 @@
 /* =========================================================
    The Darling — history filters, highlights, dedupe & weeks
    + Title/Saunders asterisks
-   + Rivalry Groups (easter eggs) callouts
+   + Rivalries from JSON (EASTER EGGS)
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -25,6 +25,7 @@ const DEFAULT_TEAM_FOR_RIVALRY = "Joe";
 
 let leagueGames = [];      // assets/H2H.json
 let seasonSummaries = [];  // assets/SeasonSummary.json
+let rivalries = [];        // assets/Rivalries.json
 
 const ALL_TEAMS = "__ALL__";
 let selectedTeam = "Joe";
@@ -42,38 +43,11 @@ let derivedWeeksSet = new Set();
 
 /* ---------- Special season notes (asterisks) ---------- */
 const SPECIAL_TITLE_NOTES = {
-  Joel: {
-    champs: { 2014: "Singer not in league", 2020: "COVID season" }
-  },
-  Joe: {
-    saunders: { 2015: "Saunders Bowl matchups incorrect" } // change year if needed
-  }
+  Joel: { champs: { 2014: "Singer not in league", 2020: "COVID season" } },
+  Joe:  { saunders: { 2015: "Saunders Bowl matchups incorrect" } }
 };
-const champNote   = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.champs?.[season] || null;
-const saundersNote= (owner, season) => SPECIAL_TITLE_NOTES[owner]?.saunders?.[season] || null;
-
-/* ---------- Rivalry Groups (easter eggs) ---------- */
-/* Add new groups by pushing objects { name, members: [..], note? } */
-const RIVAL_GROUPS = [
-  { name: "The Bird's Clinch", members: ["Shap","Joel","Connor","Plot"], note: "Old co-management crew" }
-];
-function membersSubsetOfSelection(members){
-  // Only trigger when Opponents facet is restrictive
-  if (!isRestrictive(selectedOpponents, universe.opponents)) return false;
-  const selLower = new Set([...selectedOpponents].map(s=>s.toLowerCase()));
-  return members.every(m => selLower.has(m.toLowerCase()));
-}
-function aggregateVsOpps(team, games, members){
-  let w=0,l=0,t=0,pf=0,pa=0,n=0;
-  const memLower = members.map(m=>m.toLowerCase());
-  for(const g of games){
-    const s = sidesForTeam(g, team); if(!s) continue;
-    if(!memLower.includes(s.opp.toLowerCase())) continue;
-    if(s.result==='W') w++; else if(s.result==='L') l++; else t++;
-    pf+=s.pf; pa+=s.pa; n++;
-  }
-  return { w,l,t,n, ppg: n?pf/n:0, oppg: n?pa/n:0 };
-}
+const champNote    = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.champs?.[season] || null;
+const saundersNote = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.saunders?.[season] || null;
 
 /* ---------- Utils ---------- */
 const byId = (id)=>players.find(p=>p._id===id);
@@ -168,15 +142,27 @@ function computeRegularSeasonChampYears(owner, summaries){
 /* ---------- Loaders & Tabs ---------- */
 async function loadLeagueJSON(){
   try{
-    const [h2hRes, seasonRes] = await Promise.all([
+    const [h2hRes, seasonRes, rivRes] = await Promise.all([
       fetch("assets/H2H.json"),
-      fetch("assets/SeasonSummary.json")
+      fetch("assets/SeasonSummary.json"),
+      fetch("assets/Rivalries.json")
     ]);
 
     let rawGames = await h2hRes.json();
     leagueGames = dedupeGames(rawGames);
     derivedWeeksSet = deriveWeeksInPlace(leagueGames);
     seasonSummaries = await seasonRes.json();
+
+    try{
+      rivalries = await rivRes.json();
+      if (!Array.isArray(rivalries) || rivalries.length === 0) {
+        console.warn("[Darling] Rivalries.json missing or empty — rivalry callouts disabled.");
+        rivalries = [];
+      }
+    }catch{
+      console.warn("[Darling] Rivalries.json not found/parse error — rivalry callouts disabled.");
+      rivalries = [];
+    }
 
     // Header banners for Joe
     renderHeaderBannersForOwner("Joe");
@@ -189,7 +175,7 @@ function showPage(id){
   else { document.getElementById('tabHistoryBtn').classList.add('active'); document.getElementById('page-history').classList.add('visible'); }
 }
 
-/* ---------- Header banners row (under titles) ---------- */
+/* ---------- Header banners row ---------- */
 function renderHeaderBannersForOwner(owner){
   const el=document.getElementById('headerBanners'); if(!el) return;
   const rows = seasonSummaries.filter(r=>r.owner===owner);
@@ -238,7 +224,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById("clearFilters")?.addEventListener("click", resetAllFacetsToAll);
   document.getElementById("exportCsv")?.addEventListener("click", exportHistoryCsv);
 
-  // Sidebar: rivalry + postseason chips
+  // Sidebar: rivalry + postseason chips (static from data)
   renderDraftRivalry();
   renderSidebarPostseason(DEFAULT_TEAM_FOR_RIVALRY);
 
@@ -523,7 +509,7 @@ function isRestrictive(selSet, uniArr){
   return true;
 }
 
-/* Button texts: “All” or “N selected” */
+/* Button texts */
 function updateFacetCountTexts(){
   const setText = (id, selSet, uniArr)=>{
     const el=document.getElementById(id);
@@ -541,7 +527,6 @@ function updateFacetCountTexts(){
 /* ---------- HISTORY: Filter + Render ---------- */
 function applyFacetFilters(allGames){
   return allGames.filter(g=>{
-    // When a specific team is selected, only include their games
     if(selectedTeam!==ALL_TEAMS && !(g.teamA===selectedTeam || g.teamB===selectedTeam)) return false;
 
     const t=normType(g.type);
@@ -551,12 +536,10 @@ function applyFacetFilters(allGames){
     if(isRestrictive(selectedSeasons, universe.seasons) && !selectedSeasons.has(season)) return false;
 
     if(selectedTeam!==ALL_TEAMS){
-      // Week restriction only in single-team mode (derived week index for that team)
       if(isRestrictive(selectedWeeks, universe.weeks)){
         const w = (g._weekByTeam && g._weekByTeam[selectedTeam]) || null;
         if(!w || !selectedWeeks.has(w)) return false;
       }
-      // Opponents facet only meaningful for single-team
       const opp=sidesForTeam(g, selectedTeam)?.opp;
       if(isRestrictive(selectedOpponents, universe.opponents)){ if(!opp || !selectedOpponents.has(opp)) return false; }
     }
@@ -582,7 +565,7 @@ function renderHistory(){
   renderGamesTable(selectedTeam, filtered);
 }
 
-/* ---------- Top Highlights (with regular-season titles & notes) ---------- */
+/* ---------- Top Highlights (with asterisks) ---------- */
 function renderTopHighlights(team){
   const grid = document.getElementById('teamOverviewGrid');
   if(!grid) return;
@@ -709,15 +692,22 @@ function renderSeasonCallout(team){
   }
 }
 
-/* ---- Opponent/Team Breakdown (+ group callouts) ---- */
+/* ---- Opponent/Team Breakdown (+ rivalry callouts) ---- */
 function renderOppBreakdown(team, games){
   const titleEl=document.getElementById('oppTableTitle');
   const firstCol=document.getElementById('oppFirstCol');
   const tb=document.querySelector('#oppTable tbody'); if(!tb) return;
 
-  // Rival group callouts container
   const calloutsBox=document.getElementById('rivalGroupCallouts');
   if(calloutsBox) calloutsBox.innerHTML="";
+
+  // Helper for group detection vs currently selected opponents
+  const groupMatched = (members, selfTeam=null)=>{
+    const memExSelf = selfTeam ? members.filter(m=>m!==selfTeam) : members.slice();
+    if(memExSelf.length===0) return false;
+    const selOppLower = new Set([...selectedOpponents].map(s=>s.toLowerCase()));
+    return memExSelf.every(m => selOppLower.has(m.toLowerCase()));
+  };
 
   if(team===ALL_TEAMS){
     titleEl.textContent="Team Breakdown";
@@ -759,10 +749,30 @@ function renderOppBreakdown(team, games){
         <td>${r.n}</td>
       </tr>
     `).join("");
+
+    // NEW: Nudge if a rivalry group is selected in League view
+    if (calloutsBox && rivalries.length) {
+      const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
+      if (oppRestrictive) {
+        const matched = rivalries
+          .filter(r => (r.type||"group").toLowerCase()==="group")
+          .filter(r => groupMatched(r.members, null))
+          .map(r => r.name);
+        if (matched.length) {
+          calloutsBox.innerHTML = `
+            <div class="callout">
+              <div>👀 Rivalry group matched: <strong>${matched.join(", ")}</strong></div>
+              <div class="muted" style="margin-top:4px;font-size:12px">
+                Pick a specific Team to see that team's record vs this group.
+              </div>
+            </div>`;
+        }
+      }
+    }
     return;
   }
 
-  // Single-team mode (opponent breakdown)
+  // Single-team mode
   titleEl.textContent="Opponent Breakdown";
   firstCol.textContent="Opponent";
 
@@ -789,25 +799,61 @@ function renderOppBreakdown(team, games){
     </tr>
   `).join("");
 
-  // --- Rival groups callouts (single-team only) ---
-  if(calloutsBox){
+  // --- Rival callouts (EASTER EGGS) ---
+  if(calloutsBox && rivalries.length){
     const active=[];
-    for(const grp of RIVAL_GROUPS){
-      if(membersSubsetOfSelection(grp.members)){
-        const s=aggregateVsOpps(team, games, grp.members);
+    const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
+
+    // GROUPS: require all members (excluding self, if present) to be selected
+    const groups = rivalries.filter(r=> (r.type||"group").toLowerCase()==="group");
+    for(const grp of groups){
+      if (oppRestrictive && groupMatched(grp.members, team)) {
+        const vsMembers = grp.members.filter(m=>m!==team);
+        const s = aggregateVsOpps(team, games, vsMembers);
         active.push(`
-          <div class="callout rival">
-            <div>🐦 <strong>${grp.name}</strong> — ${s.w}-${s.l}-${s.t} (${fmtPct(s.w,s.l,s.t)})</div>
+          <div class="callout">
+            <div>🏷️ <strong>${grp.name}</strong> — ${s.w}-${s.l}-${s.t} (${fmtPct(s.w,s.l,s.t)})</div>
             <div class="muted" style="margin-top:4px;font-size:12px">
-              Members: ${grp.members.join(", ")} • PPG: ${s.ppg.toFixed(2)} • OPPG: ${s.oppg.toFixed(2)}${grp.note?` • ${grp.note}`:""}
+              Members: ${vsMembers.join(", ")} • PPG: ${s.ppg.toFixed(2)} • OPPG: ${s.oppg.toFixed(2)}
               <span> • (within current filters)</span>
             </div>
           </div>
         `);
       }
     }
+
+    // PAIRS: require counterpart selected
+    const pairs = rivalries.filter(r=> (r.type||"pair").toLowerCase()==="pair" && (r.members||[]).length===2);
+    for(const pr of pairs){
+      const [a,b] = pr.members;
+      if (!(team===a || team===b)) continue;
+      const counterpart = team===a ? b : a;
+      if (oppRestrictive && selectedOpponents.has(counterpart)) {
+        const s = aggregateVsOpps(team, games, [counterpart]);
+        active.push(`
+          <div class="callout">
+            <div>🔥 <strong>${pr.name}</strong> — ${s.w}-${s.l}-${s.t} (${fmtPct(s.w,s.l,s.t)})</div>
+            <div class="muted" style="margin-top:4px;font-size:12px">
+              PPG: ${s.ppg.toFixed(2)} • OPPG: ${s.oppg.toFixed(2)} • (within current filters)
+            </div>
+          </div>
+        `);
+      }
+    }
+
     calloutsBox.innerHTML = active.join("");
   }
+}
+function aggregateVsOpps(team, games, members){
+  let w=0,l=0,t=0,pf=0,pa=0,n=0;
+  const memLower = members.map(m=>m.toLowerCase());
+  for(const g of games){
+    const s = sidesForTeam(g, team); if(!s) continue;
+    if(!memLower.includes(s.opp.toLowerCase())) continue;
+    if(s.result==='W') w++; else if(s.result==='L') l++; else t++;
+    pf+=s.pf; pa+=s.pa; n++;
+  }
+  return { w,l,t,n, ppg: n?pf/n:0, oppg: n?pa/n:0 };
 }
 
 /* ---- Season Recap (team only) ---- */
@@ -842,7 +888,7 @@ function renderSeasonRecap(team){
   `).join("");
 }
 
-/* ---- Week-by-Week (team only; newest → oldest) ---- */
+/* ---- Week-by-Week (newest → oldest) ---- */
 function renderWeekByWeek(team, games){
   const tb=document.querySelector('#weekTable tbody'); if(!tb) return;
   if(team===ALL_TEAMS){ tb.innerHTML=`<tr><td colspan="8" class="muted">Select a team to see week-by-week games.</td></tr>`; return; }
@@ -875,7 +921,7 @@ function renderWeekByWeek(team, games){
   }).join("");
 }
 
-/* ---- All Games (team only; newest → oldest) ---- */
+/* ---- All Games (newest → oldest) ---- */
 function renderGamesTable(team, games){
   const tbody=document.querySelector("#historyGamesTable tbody"); if(!tbody) return;
   if(team===ALL_TEAMS){ tbody.innerHTML=`<tr><td colspan="7" class="muted">Select a team to see full game list.</td></tr>`; return; }
@@ -935,7 +981,7 @@ function exportHistoryCsv(){
   a.href=url; a.download=`history_${selectedTeam}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-/* ---------- Test exports (safe in browser) ---------- */
+/* ---------- Test exports (node-friendly) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     dedupeGames,

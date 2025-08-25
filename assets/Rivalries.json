@@ -1,0 +1,46 @@
+[
+    { "slug": "joel-singer",   "name": "Joel & Singer",   "type": "pair",  "members": ["Joel", "Singer"] },
+    { "slug": "rishi-singer",  "name": "Rishi & Singer",  "type": "pair",  "members": ["Rishi", "Singer"], "note": "One-sided toward Singer" },
+    { "slug": "zook-rishi",    "name": "Zook & Rishi",    "type": "pair",  "members": ["Zook", "Rishi"] },
+    { "slug": "singer-nuss",   "name": "Singer & Nuss",   "type": "pair",  "members": ["Singer", "Nuss"], "note": "Butter Bowl" },
+    { "slug": "nuss-rishi",    "name": "Nuss & Rishi",    "type": "pair",  "members": ["Nuss", "Rishi"],  "note": "Battle of the Terps" },
+    { "slug": "nuss-connor",   "name": "Nuss & Connor",   "type": "pair",  "members": ["Nuss", "Connor"] },
+    { "slug": "shap-rishi",    "name": "Shap & Rishi",    "type": "pair",  "members": ["Shap", "Rishi"] },
+    { "slug": "joe-joel",      "name": "Haynes & Joel",   "type": "pair",  "members": ["Joe", "Joel"] },
+    { "slug": "zubs-joel",     "name": "Zubs & Joel",     "type": "pair",  "members": ["Zubs", "Joel"] },
+    { "slug": "zubs-singer",   "name": "Zubs & Singer",   "type": "pair",  "members": ["Zubs", "Singer"] },
+  
+    { "slug": "the-jews", "name": "The Jews", "type": "group",
+      "members": ["Shap", "Zubs", "Nuss", "Joel", "Singer", "Plot", "Zook"] },
+  
+    { "slug": "churchill-baseball", "name": "Churchill Baseball", "type": "group",
+      "members": ["Singer", "Zook", "Joel"] },
+  
+    { "slug": "blue-bloods", "name": "Blue Bloods", "type": "group",
+      "members": ["Joe", "Joel", "Zook", "Singer", "Zubs"] },
+  
+    { "slug": "commish", "name": "Commish", "type": "group",
+      "members": ["Joe", "Joel", "Zubs"] },
+  
+    { "slug": "fathers", "name": "Fathers", "type": "group",
+      "members": ["Connor", "Zubs", "Shap"] },
+  
+    { "slug": "hoosiers", "name": "Hoosiers", "type": "group",
+      "members": ["Zook", "Joel"] },
+  
+    { "slug": "married", "name": "Married", "type": "group",
+      "members": ["Zubs", "Shap", "Nuss", "Joe", "Connor"] },
+  
+    { "slug": "birthday-boys", "name": "Birthday Boys", "type": "group",
+      "members": ["Plot", "Rishi"] },
+  
+    { "slug": "former-champions", "name": "Former Champions", "type": "group",
+      "members": ["Joe", "Joel", "Zook", "Singer", "Zubs", "Nuss"] },
+  
+    { "slug": "educated", "name": "Educated", "type": "group",
+      "members": ["Zook", "Nuss", "Joel"] },
+  
+    { "slug": "sec", "name": "SEC", "type": "group",
+      "members": ["Connor", "Singer"] }
+  ]
+  
