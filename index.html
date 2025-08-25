@@ -112,6 +112,13 @@
           </div>
 
           <div class="dropdown">
+            <button class="btn dropdown-toggle" data-target="weekFilters">
+              Weeks <span class="count-text" id="weekCountText">All</span> ▼
+            </button>
+            <div class="dropdown-menu" id="weekFilters"></div>
+          </div>
+
+          <div class="dropdown">
             <button class="btn dropdown-toggle" data-target="oppFilters">
               Opponents <span class="count-text" id="oppCountText">All</span> ▼
             </button>
@@ -144,18 +151,18 @@
       </div>
 
       <div class="card">
-        <h3>Aggregated Stats</h3>
+        <h3>Stats Overview</h3>
         <div id="aggStats" class="stats-grid"></div>
         <div id="seasonCallout"></div>
       </div>
 
       <div class="card">
-        <h3>Opponent Breakdown</h3>
+        <h3 id="oppHeader">Opponent Breakdown</h3>
         <div class="table-wrap">
           <table id="oppTable">
             <thead>
               <tr>
-                <th>Opponent</th>
+                <th id="oppCol1">Opponent</th>
                 <th>Record</th>
                 <th>Win %</th>
                 <th>PPG</th>
