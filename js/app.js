@@ -1,7 +1,7 @@
 /* =========================================================
-   The Darling — Regular-season titles chip + header banners row,
-   dedupe games, derived weeks, filters & stats
-   + Special asterisks/notes (Joel champs, Joe Saunders)
+   The Darling — history filters, highlights, dedupe & weeks
+   + Title/Saunders asterisks
+   + Rivalry Groups (easter eggs) callouts
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -40,26 +40,39 @@ let universe = { seasons: [], weeks: [], opponents: [], types: [], rounds: [] };
 /* Derived weeks set */
 let derivedWeeksSet = new Set();
 
-/* ---------- Special title notes ---------- */
-/* Add any per-owner season notes here. These trigger asterisks (*) in UI. */
+/* ---------- Special season notes (asterisks) ---------- */
 const SPECIAL_TITLE_NOTES = {
   Joel: {
-    champs: {
-      2014: "Singer not in league",
-      2020: "COVID season"
-    }
+    champs: { 2014: "Singer not in league", 2020: "COVID season" }
   },
   Joe: {
-    saunders: {
-      2015: "Saunders Bowl matchups incorrect" // change the year if needed
-    }
+    saunders: { 2015: "Saunders Bowl matchups incorrect" } // change year if needed
   }
 };
-function champNote(owner, season){
-  return (SPECIAL_TITLE_NOTES[owner]?.champs?.[season]) || null;
+const champNote   = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.champs?.[season] || null;
+const saundersNote= (owner, season) => SPECIAL_TITLE_NOTES[owner]?.saunders?.[season] || null;
+
+/* ---------- Rivalry Groups (easter eggs) ---------- */
+/* Add new groups by pushing objects { name, members: [..], note? } */
+const RIVAL_GROUPS = [
+  { name: "The Bird's Clinch", members: ["Shap","Joel","Connor","Plot"], note: "Old co-management crew" }
+];
+function membersSubsetOfSelection(members){
+  // Only trigger when Opponents facet is restrictive
+  if (!isRestrictive(selectedOpponents, universe.opponents)) return false;
+  const selLower = new Set([...selectedOpponents].map(s=>s.toLowerCase()));
+  return members.every(m => selLower.has(m.toLowerCase()));
 }
-function saundersNote(owner, season){
-  return (SPECIAL_TITLE_NOTES[owner]?.saunders?.[season]) || null;
+function aggregateVsOpps(team, games, members){
+  let w=0,l=0,t=0,pf=0,pa=0,n=0;
+  const memLower = members.map(m=>m.toLowerCase());
+  for(const g of games){
+    const s = sidesForTeam(g, team); if(!s) continue;
+    if(!memLower.includes(s.opp.toLowerCase())) continue;
+    if(s.result==='W') w++; else if(s.result==='L') l++; else t++;
+    pf+=s.pf; pa+=s.pa; n++;
+  }
+  return { w,l,t,n, ppg: n?pf/n:0, oppg: n?pa/n:0 };
 }
 
 /* ---------- Utils ---------- */
@@ -165,7 +178,7 @@ async function loadLeagueJSON(){
     derivedWeeksSet = deriveWeeksInPlace(leagueGames);
     seasonSummaries = await seasonRes.json();
 
-    // Header banners for Joe (championships + regular-season titles) below titles
+    // Header banners for Joe
     renderHeaderBannersForOwner("Joe");
   }catch(e){ console.error("Failed to load league JSON", e); }
 }
@@ -182,7 +195,6 @@ function renderHeaderBannersForOwner(owner){
   const rows = seasonSummaries.filter(r=>r.owner===owner);
   const champYears = rows.filter(r=>r.champion).map(r=>r.season).sort((a,b)=>a-b);
   const regYears = computeRegularSeasonChampYears(owner, seasonSummaries);
-
   const chips = [
     ...champYears.map(y=>`<div class="banner champ">🏆 ${y}</div>`),
     ...regYears.map(y=>`<div class="banner reg">🥇 ${y}</div>`)
@@ -245,7 +257,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   }
 });
 
-/* ---------- Draft Rendering/Actions ---------- */
+/* ---------- Draft UI ---------- */
 function renderTable(){
   const search=(document.getElementById("search")?.value||"").toLowerCase();
   const pos=document.getElementById("positionFilter")?.value||"";
@@ -352,7 +364,6 @@ function renderDraftRivalry(){
   document.getElementById("rivalry").innerHTML=html;
   const best=rows[0]; if(best) document.getElementById("trashTalk").textContent=`Most-owned: ${best.opp} (${best.w}-${best.l}-${best.t}).`;
 }
-
 function renderSidebarPostseason(team){
   const wrap=document.getElementById('postKpis'); if(!wrap) return;
   const champs = seasonSummaries.filter(r=>r.owner===team && r.champion).map(x=>x.season).sort((a,b)=>b-a);
@@ -540,12 +551,12 @@ function applyFacetFilters(allGames){
     if(isRestrictive(selectedSeasons, universe.seasons) && !selectedSeasons.has(season)) return false;
 
     if(selectedTeam!==ALL_TEAMS){
-      // Week restriction only in single-team mode (use derived week index for that team)
+      // Week restriction only in single-team mode (derived week index for that team)
       if(isRestrictive(selectedWeeks, universe.weeks)){
         const w = (g._weekByTeam && g._weekByTeam[selectedTeam]) || null;
         if(!w || !selectedWeeks.has(w)) return false;
       }
-      // Opponents facet only makes sense in single-team mode
+      // Opponents facet only meaningful for single-team
       const opp=sidesForTeam(g, selectedTeam)?.opp;
       if(isRestrictive(selectedOpponents, universe.opponents)){ if(!opp || !selectedOpponents.has(opp)) return false; }
     }
@@ -571,7 +582,7 @@ function renderHistory(){
   renderGamesTable(selectedTeam, filtered);
 }
 
-/* ---------- Top Highlights (with Regular-Season Titles & notes) ---------- */
+/* ---------- Top Highlights (with regular-season titles & notes) ---------- */
 function renderTopHighlights(team){
   const grid = document.getElementById('teamOverviewGrid');
   if(!grid) return;
@@ -591,14 +602,12 @@ function renderTopHighlights(team){
   const sauYears   = rows.filter(r => r.saunders===true).map(r => r.season).sort((a,b)=>b-a);
   const regYears   = computeRegularSeasonChampYears(team, seasonSummaries).sort((a,b)=>b-a);
 
-  // Append * to years that have notes
   const champsDisplay = champYears.map(y => champNote(team, y) ? `${y}*` : `${y}`);
   const sauDisplay    = sauYears.map(y => saundersNote(team, y) ? `${y}*` : `${y}`);
 
-  // Collect footnotes for this team
   const notes = [];
-  champYears.forEach(y => { const n = champNote(team, y); if(n) notes.push(`${y} — ${n}`); });
-  sauYears.forEach(y => { const n = saundersNote(team, y); if(n) notes.push(`${y} — ${n}`); });
+  champYears.forEach(y => { const n=champNote(team,y); if(n) notes.push(`${y} — ${n}`); });
+  sauYears.forEach(y => { const n=saundersNote(team,y); if(n) notes.push(`${y} — ${n}`); });
 
   const chip = (title, main, sub="", extraClass="") => `
     <div class="overview-chip ${extraClass}">
@@ -688,9 +697,9 @@ function renderSeasonCallout(team){
     if(rec.saunders_wins||rec.saunders_losses||rec.saunders_ties) bits.push(`Saunders: ${(rec.saunders_wins||0)}-${(rec.saunders_losses||0)}-${(rec.saunders_ties||0)}`);
     const record=`${rec.wins}-${rec.losses}-${rec.ties||0}`;
     const pct=fmtPct(rec.wins, rec.losses, rec.ties||0);
-    const notes = [];
-    const cN = champNote(team, onlySeason); if(cN) notes.push(`${onlySeason} — ${cN}`);
-    const sN = saundersNote(team, onlySeason); if(sN) notes.push(`${onlySeason} — ${sN}`);
+    const notes=[];
+    const cN=champNote(team, onlySeason); if(cN) notes.push(`${onlySeason} — ${cN}`);
+    const sN=saundersNote(team, onlySeason); if(sN) notes.push(`${onlySeason} — ${sN}`);
     callout.innerHTML = `<div class="callout">
       <div>${team} in <strong>${onlySeason}</strong></div>
       <div>Record: <strong>${record}</strong> (${pct})</div>
@@ -700,11 +709,15 @@ function renderSeasonCallout(team){
   }
 }
 
-/* ---- Opponent/Team Breakdown ---- */
+/* ---- Opponent/Team Breakdown (+ group callouts) ---- */
 function renderOppBreakdown(team, games){
   const titleEl=document.getElementById('oppTableTitle');
   const firstCol=document.getElementById('oppFirstCol');
   const tb=document.querySelector('#oppTable tbody'); if(!tb) return;
+
+  // Rival group callouts container
+  const calloutsBox=document.getElementById('rivalGroupCallouts');
+  if(calloutsBox) calloutsBox.innerHTML="";
 
   if(team===ALL_TEAMS){
     titleEl.textContent="Team Breakdown";
@@ -775,6 +788,26 @@ function renderOppBreakdown(team, games){
       <td>${r.n}</td>
     </tr>
   `).join("");
+
+  // --- Rival groups callouts (single-team only) ---
+  if(calloutsBox){
+    const active=[];
+    for(const grp of RIVAL_GROUPS){
+      if(membersSubsetOfSelection(grp.members)){
+        const s=aggregateVsOpps(team, games, grp.members);
+        active.push(`
+          <div class="callout rival">
+            <div>🐦 <strong>${grp.name}</strong> — ${s.w}-${s.l}-${s.t} (${fmtPct(s.w,s.l,s.t)})</div>
+            <div class="muted" style="margin-top:4px;font-size:12px">
+              Members: ${grp.members.join(", ")} • PPG: ${s.ppg.toFixed(2)} • OPPG: ${s.oppg.toFixed(2)}${grp.note?` • ${grp.note}`:""}
+              <span> • (within current filters)</span>
+            </div>
+          </div>
+        `);
+      }
+    }
+    calloutsBox.innerHTML = active.join("");
+  }
 }
 
 /* ---- Season Recap (team only) ---- */
@@ -783,9 +816,7 @@ function renderSeasonRecap(team){
   if(team===ALL_TEAMS){ tb.innerHTML=`<tr><td colspan="4" class="muted">Select a team to see season recap.</td></tr>`; return; }
 
   let rows=seasonSummaries.filter(r=>r.owner===team);
-  if(isRestrictive(selectedSeasons, universe.seasons)) {
-    rows = rows.filter(r=>selectedSeasons.has(+r.season));
-  }
+  if(isRestrictive(selectedSeasons, universe.seasons)) rows = rows.filter(r=>selectedSeasons.has(+r.season));
   rows.sort((a,b)=>b.season-a.season);
 
   const fmtTriplet = (w=0,l=0,t=0) => `${w||0}-${l||0}-${t||0}`;

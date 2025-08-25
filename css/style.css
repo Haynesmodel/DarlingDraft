@@ -16,13 +16,10 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,"
 
 /* Header */
 header{
-  padding:48px 16px 72px;               /* smaller than before */
+  padding:48px 16px 72px;
   min-height: var(--header-min-h);
   color:#fff;
-  background:
-    url('../assets/LeagePic.jpeg')
-    center var(--header-focus-y) / cover
-    no-repeat;
+  background:url('../assets/LeagePic.jpeg') center var(--header-focus-y) / cover no-repeat;
   position:relative;
 }
 header::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.35)}
@@ -32,30 +29,15 @@ header h2{margin:8px 0 0;font-weight:500;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 /* Banners row lives under titles */
 .banners{
   margin-top:12px;
-  display:flex;
-  flex-wrap:wrap;
-  justify-content:center;
-  gap:8px;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
 }
-.banner{
-  padding:6px 10px;
-  border-radius:999px;
-  font-weight:700;
-  font-size:12px;
-  border:1px solid rgba(255,255,255,.25);
-  background:rgba(255,255,255,.9);
-  color:#111;
-  backdrop-filter:blur(2px)
-}
+.banner{padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.9);color:#111;backdrop-filter:blur(2px)}
 .banner.champ{background:#ffd700;color:#111}
 .banner.reg{background:#bfdbfe;color:#0c4a6e}
 
 /* Slightly higher focus on small screens and still compact */
 @media (max-width: 640px){
-  :root{
-    --header-focus-y: 68%;
-    --header-min-h: 380px;
-  }
+  :root{ --header-focus-y: 68%; --header-min-h: 380px; }
 }
 
 /* Tabs */
@@ -91,9 +73,7 @@ main{padding:16px}
 }
 .dropdown.open .dropdown-menu{display:block}
 .dropdown-menu .all-row{border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:6px}
-.dropdown-menu label{
-  display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;padding:6px 6px;border-radius:8px;cursor:pointer
-}
+.dropdown-menu label{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;padding:6px 6px;border-radius:8px;cursor:pointer}
 .dropdown-menu label:hover{background:#f9fafb}
 .dropdown-menu input[type="checkbox"]{width:16px;height:16px;border:1px solid var(--border);border-radius:4px}
 .dropdown-menu .grid{display:flex;flex-direction:column}
@@ -117,7 +97,7 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 .sidebar-scroll{display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:calc(100vh - 220px)}
 .kpi{display:flex;gap:8px;flex-wrap:wrap}
 .pill{background:#f1f5f9;border:1px solid var(--border);color:#0f172a;padding:6px 10px;border-radius:999px;font-size:12px}
-.muted{color:#6b7280}
+.muted{color:var(--muted)}
 .slot{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px dashed var(--border)}
 .slot:first-child{border-top:none}
 .empty{color:var(--muted);font-style:italic}
@@ -134,34 +114,26 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 /* Stats + Callout */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .stat{background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
-.stat .label{font-size:12px;color:#6b7280}
+.stat .label{font-size:12px;color:var(--muted)}
 .stat .value{font-size:16px;font-weight:700}
 .callout{margin-top:12px;padding:12px;border-radius:12px;background:#eef2ff;border:1px solid #c7d2fe;font-size:14px;font-weight:600}
 
+/* NEW: multi-callouts area (for rival groups) */
+.callouts{display:flex;flex-direction:column;gap:8px;margin:8px 0 10px}
+.callout.rival{background:#fff7ed;border-color:#ffedd5}
+.callout.rival .muted{color:#8b5e34}
+
 /* Highlights grid */
 .overview-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:10px
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px
 }
-.overview-chip{
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  background:#fff;
-}
-.overview-chip h4{
-  margin:0 0 6px 0;
-  font-size:12px;
-  color:#6b7280;
-  text-transform:uppercase;
-  letter-spacing:.04em;
-}
+.overview-chip{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff}
+.overview-chip h4{margin:0 0 6px 0;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .overview-chip .big{font-size:18px;font-weight:800}
-.overview-chip .sub{font-size:12px;color:#6b7280;margin-top:4px}
+.overview-chip .sub{font-size:12px;color:var(--muted);margin-top:4px}
 .overview-chip.champs{ box-shadow:inset 0 0 0 2px var(--champ-accent); }
-.overview-chip.sau{ box-shadow:inset 0 0 0 2px var(--sau-accent); }
-.overview-chip.regs{ box-shadow:inset 0 0 0 2px var(--reg-accent); }
+.overview-chip.sau{    box-shadow:inset 0 0 0 2px var(--sau-accent); }
+.overview-chip.regs{   box-shadow:inset 0 0 0 2px var(--reg-accent); }
 
 /* Rivalry table (sidebar) */
 .rivalry-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
