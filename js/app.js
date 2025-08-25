@@ -2,7 +2,8 @@
    The Darling — history filters, highlights, dedupe & weeks
    + Asterisks, Rivalries (easter eggs)
    + Fun Facts, Crown Rain, Saunders Fog
-   + NEW: Top 5 High/Low (skip 2014 playoffs), streak ranges
+   + Top 5 High/Low (skip 2014 playoffs), streak ranges
+   + 👑 crowns + 💩 turds per week; Luck (Expected Wins)
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -362,7 +363,7 @@ function renderSidebarPostseason(team){
   wrap.innerHTML = `
     <div class="pill">🏆 Champs: ${champs.length}${champs.length?` (${champs.join(", ")})`:""}</div>
     <div class="pill">🔥 Byes: ${byes.length}${byes.length?` (${byes.join(", ")})`:""}</div>
-    <div class="pill">🪦 Saunders: ${sauYears.length}${saundersYears?` (${sauYears.join(", ")})`:""}</div>
+    <div class="pill">🪦 Saunders: ${sauYears.length}${sauYears.length?` (${sauYears.join(", ")})`:""}</div>
   `;
 }
 
@@ -708,15 +709,58 @@ function renderSeasonCallout(team){
   }
 }
 
-/* ---------- FUN FACTS ---------- */
+/* ---------- FUN FACTS, LUCK ---------- */
 function isTwoWeek2014(g){
-  // Exclude 2014 non-regular games (two-week playoffs that season)
+  // Exclude 2014 non-regular games (two-week playoffs that season) for high/low lists
   return (+g.season === 2014) && !isRegularGame(g);
 }
 
 function weekLabelFor(team, g){
   const wk = g._weekByTeam && g._weekByTeam[team];
   return wk ? `Wk ${wk} ${g.season}` : `${g.season}`;
+}
+
+function expectedWinForGame(team, g){
+  // Use REGULAR-SEASON games on the same date/season; denominator = opponents that date
+  if (!isRegularGame(g)) return null;
+  const season = +g.season;
+  const dayGames = leagueGames.filter(x => +x.season===season && x.date===g.date && isRegularGame(x));
+  if (!dayGames.length) return null;
+
+  // Collect all team-scores that date
+  const scoreList = [];
+  for(const x of dayGames){
+    scoreList.push({ team:x.teamA, score:x.scoreA });
+    scoreList.push({ team:x.teamB, score:x.scoreB });
+  }
+
+  const myScore = (g.teamA===team) ? g.scoreA : (g.teamB===team ? g.scoreB : null);
+  if (myScore===null) return null;
+
+  // Count how many below; ties get half-credit
+  let below = 0, tied = 0, totalTeams = 0;
+  for(const s of scoreList){
+    if (s.team === team) continue;
+    totalTeams++;
+    if (s.score < myScore) below++;
+    else if (s.score === myScore) tied++;
+  }
+  if (totalTeams<=0) return null;
+  return (below + 0.5 * tied) / totalTeams;
+}
+
+function luckSummary(team, games){
+  // Sum expected wins over all REGULAR games in the filtered set; compare to actual W
+  const regGames = games.filter(g=> isRegularGame(g) && (g.teamA===team || g.teamB===team));
+  let exp = 0, act = 0;
+  for(const g of regGames){
+    const s = sidesForTeam(g, team);
+    const xw = expectedWinForGame(team, g);
+    if (xw!==null) exp += xw;
+    if (s && s.result==='W') act += 1;
+    if (s && s.result==='T') act += 0.5; // give ties half-win in "actual"
+  }
+  return { exp, act, luck: act - exp };
 }
 
 function renderFunFacts(team, games){
@@ -789,6 +833,9 @@ function renderFunFacts(team, games){
   const hi5 = perGame.slice().sort((a,b)=> b.pf - a.pf || new Date(b.date)-new Date(a.date)).slice(0,5);
   const lo5 = perGame.slice().sort((a,b)=> a.pf - b.pf || new Date(a.date)-new Date(b.date)).slice(0,5);
 
+  // Luck (expected wins) over current filtered regular-season games
+  const { exp, act, luck } = luckSummary(team, games);
+
   // Tiles
   const tile=(label,val,sub="")=>`<div class="stat"><div class="label">${label}</div><div class="value">${val}</div>${sub?`<div class="label" style="margin-top:4px">${sub}</div>`:""}</div>`;
   const lwSub = lwLen>0 && lwStart && lwEnd ? `${lwStart.date} → ${lwEnd.date} (${weekLabelFor(team,lwStart)} → ${weekLabelFor(team,lwEnd)})` : "";
@@ -799,8 +846,8 @@ function renderFunFacts(team, games){
     tile("Biggest Blowout", blow? `+${blow.margin.toFixed(2)}`:"—", blow? `${blow.date} vs ${blow.opp} (${blow.pf.toFixed(2)}–${blow.pa.toFixed(2)})`:""),
     tile("Longest Win Streak", lwLen || 0, lwSub || "—"),
     tile("Longest Losing Streak", llLen || 0, llSub || "—"),
-    // Week crowns: count dates where your score equals league max that date
     (()=>{
+      // Top-Week Crowns (led league in points on that date)
       const datesPlayed = unique(orderedAsc.map(g=> (sidesForTeam(g,team)? g.date : null)).filter(Boolean));
       let crowns = 0;
       for(const d of datesPlayed){
@@ -811,7 +858,9 @@ function renderFunFacts(team, games){
         if(meScore === maxScore) crowns++;
       }
       return tile("Top-Week Crowns", crowns || 0, crowns? "Led league in points on those dates":"");
-    })()
+    })(),
+    tile("Luck (Actual − Expected)", luck ? (luck>0?`+${luck.toFixed(2)}`:luck.toFixed(2)) : (luck===0 ? "0.00" : "—"),
+         (Number.isFinite(exp) ? `Actual: ${act.toFixed(2)} • Expected: ${exp.toFixed(2)} (regular season only)` : "—"))
   ].join("");
 
   // Lists
@@ -823,7 +872,7 @@ function renderFunFacts(team, games){
 
   lists.innerHTML = `
     <div class="mini">
-      <div class="mini-title">Top 5 Highest Scoring Games ${selectedSeasons.size===0?"(all seasons)":""}</div>
+      <div class="mini-title">Top 5 Highest Scoring Games</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Score</th><th>Opponent</th><th>Date</th></tr></thead>
@@ -832,7 +881,7 @@ function renderFunFacts(team, games){
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Bottom 5 Lowest Scoring Games ${selectedSeasons.size===0?"(all seasons)":""}</div>
+      <div class="mini-title">Bottom 5 Lowest Scoring Games</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Score</th><th>Opponent</th><th>Date</th></tr></thead>
@@ -1035,10 +1084,10 @@ function renderSeasonRecap(team){
   `).join("");
 }
 
-/* ---- Week-by-Week (newest → oldest) ---- */
+/* ---- Week-by-Week (newest → oldest) with crowns/turds + XW ---- */
 function renderWeekByWeek(team, games){
   const tb=document.querySelector('#weekTable tbody'); if(!tb) return;
-  if(team===ALL_TEAMS){ tb.innerHTML=`<tr><td colspan="8" class="muted">Select a team to see week-by-week games.</td></tr>`; return; }
+  if(team===ALL_TEAMS){ tb.innerHTML=`<tr><td colspan="9" class="muted">Select a team to see week-by-week games.</td></tr>`; return; }
 
   const bySeason=new Map();
   for(const g of games){ const arr=bySeason.get(g.season)||[]; arr.push(g); bySeason.set(g.season, arr); }
@@ -1049,19 +1098,40 @@ function renderWeekByWeek(team, games){
       const s=sidesForTeam(g, team); if(!s) continue;
       const type=normType(g.type);
       const week=(g._weekByTeam && g._weekByTeam[team]) || '';
-      rows.push({season, week, date:g.date, opp:s.opp, result:s.result, pf:s.pf, pa:s.pa, type, round:normRound(g.round)});
+
+      // Crown/Turd calculation for this date (use ALL league games that date)
+      const dayGames = leagueGames.filter(x => +x.season===+g.season && x.date===g.date);
+      const allScores = dayGames.flatMap(x => [x.scoreA, x.scoreB]);
+      const maxScore = Math.max(...allScores);
+      const minScore = Math.min(...allScores);
+      const myScore = (g.teamA===team) ? g.scoreA : g.scoreB;
+      const isCrown = myScore===maxScore;
+      const isTurd  = myScore===minScore;
+
+      // Expected win (regular season only)
+      const xw = expectedWinForGame(team, g);
+
+      rows.push({
+        season, week, date:g.date, opp:s.opp, result:s.result, pf:s.pf, pa:s.pa, type, round:normRound(g.round),
+        isCrown, isTurd, xw
+      });
     }
   }
   tb.innerHTML = rows.map(r=>{
     const resClass = r.result==='W'?'result-win': r.result==='L'?'result-loss':'result-tie';
     const postClass = (r.type!=="Regular") ? 'postseason' : '';
+    const badges = `
+      ${r.isCrown ? `<span class="badge-emoji" title="Top score league-wide this week">👑</span>` : ""}
+      ${r.isTurd  ? `<span class="badge-emoji big" title="Lowest score league-wide this week">💩</span>` : ""}
+    `;
     return `<tr class="${resClass} ${postClass}">
       <td>${r.season}</td>
       <td>${r.week||''}</td>
       <td>${r.date}</td>
       <td>${r.opp}</td>
       <td>${r.result}</td>
-      <td>${r.pf.toFixed(2)} - ${r.pa.toFixed(2)}</td>
+      <td class="score-cell">${r.pf.toFixed(2)} - ${r.pa.toFixed(2)} ${badges}</td>
+      <td>${(r.xw===null || r.xw===undefined) ? '—' : r.xw.toFixed(2)}</td>
       <td>${r.type}</td>
       <td>${r.round||''}</td>
     </tr>`;
@@ -1094,7 +1164,7 @@ function renderGamesTable(team, games){
 /* ---------- Export ---------- */
 function exportHistoryCsv(){
   const filtered=applyFacetFilters(leagueGames).sort(byDateDesc);
-  const header=['date','season','team','opponent','result','pf','pa','type','round','week'];
+  const header=['date','season','team','opponent','result','pf','pa','type','round','week','xw'];
   const lines=[header.join(',')];
 
   if(selectedTeam===ALL_TEAMS){
@@ -1107,7 +1177,8 @@ function exportHistoryCsv(){
       for(const s of sides){
         const w = (g._weekByTeam && g._weekByTeam[s.team]) || null;
         if(useWeek && (!w || !selectedWeeks.has(w))) continue;
-        lines.push([g.date,g.season,s.team,s.opp,s.res,s.pf.toFixed(2),s.pa.toFixed(2),normType(g.type),normRound(g.round),w??""]
+        const xw = isRegularGame(g) ? expectedWinForGame(s.team, g) : null;
+        lines.push([g.date,g.season,s.team,s.opp,s.res,s.pf.toFixed(2),s.pa.toFixed(2),normType(g.type),normRound(g.round),w??"", (xw??"")]
           .map(csvEscape).map(v=>`"${v}"`).join(','));
       }
     }
@@ -1120,7 +1191,8 @@ function exportHistoryCsv(){
   for(const g of filtered){
     const s=sidesForTeam(g, selectedTeam); if(!s) continue;
     const w=(g._weekByTeam && g._weekByTeam[selectedTeam]) || "";
-    lines.push([g.date,g.season,selectedTeam,s.opp,s.result,s.pf.toFixed(2),s.pa.toFixed(2),normType(g.type),normRound(g.round),w]
+    const xw = isRegularGame(g) ? expectedWinForGame(selectedTeam, g) : null;
+    lines.push([g.date,g.season,selectedTeam,s.opp,s.result,s.pf.toFixed(2),s.pa.toFixed(2),normType(g.type),normRound(g.round),w,(xw??"")]
       .map(csvEscape).map(v=>`"${v}"`).join(','));
   }
   const blob=new Blob([lines.join('\n')],{type:'text/csv'});

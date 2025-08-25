@@ -126,6 +126,11 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 .table-wrap.mini-table thead th{background:#1f2937}
 .table-wrap.mini-table tbody td{font-size:13px}
 
+/* Badges in tables */
+.score-cell{display:flex;align-items:center;gap:6px}
+.badge-emoji{font-size:16px;line-height:1}
+.badge-emoji.big{font-size:18px}
+
 /* FX overlays */
 #fxCrown{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:999;display:none}
 .crown{position:absolute;font-size:24px;animation:fall linear forwards;filter:drop-shadow(0 2px 2px rgba(0,0,0,.2))}
