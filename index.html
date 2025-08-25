@@ -153,11 +153,16 @@
         <div id="seasonCallout"></div>
       </div>
 
+      <!-- Fun Facts -->
+      <div class="card">
+        <h3>Fun Facts</h3>
+        <div id="funFacts" class="stats-grid fun-grid"></div>
+        <div id="funLists" class="fun-lists"></div>
+      </div>
+
       <div class="card">
         <h3 id="oppTableTitle">Opponent Breakdown</h3>
-        <!-- Rival group/pair callouts show as easter eggs -->
         <div id="rivalGroupCallouts" class="callouts"></div>
-
         <div class="table-wrap">
           <table id="oppTable">
             <thead>
@@ -235,9 +240,17 @@
     </section>
   </main>
 
+  <!-- SFX -->
   <audio id="cheer" preload="auto">
-    <source src="data:audio/mp3;base64,//uQZ..." type="audio/mp3">
+    <source src="data:audio/mp3;base64,//uQZ" type="audio/mp3">
   </audio>
+  <audio id="trombone" preload="auto">
+    <source src="data:audio/mp3;base64,//uQZ" type="audio/mp3">
+  </audio>
+
+  <!-- FX overlays -->
+  <div id="fxCrown"></div>
+  <div id="fxSaunders"></div>
 
   <script src="js/app.js" defer></script>
 </body>

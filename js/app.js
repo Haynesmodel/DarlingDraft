@@ -1,7 +1,8 @@
 /* =========================================================
    The Darling — history filters, highlights, dedupe & weeks
-   + Title/Saunders asterisks
-   + Rivalries from JSON (EASTER EGGS)
+   + Asterisks, Rivalries (easter eggs)
+   + Fun Facts, Crown Rain, Saunders Fog
+   + NEW: Top 5 High/Low (skip 2014 playoffs), streak ranges
 ========================================================= */
 
 /* ---------- Global State ---------- */
@@ -41,6 +42,9 @@ let universe = { seasons: [], weeks: [], opponents: [], types: [], rounds: [] };
 /* Derived weeks set */
 let derivedWeeksSet = new Set();
 
+/* Effects — avoid replaying repeatedly */
+let lastEffectKey = null;
+
 /* ---------- Special season notes (asterisks) ---------- */
 const SPECIAL_TITLE_NOTES = {
   Joel: { champs: { 2014: "Singer not in league", 2020: "COVID season" } },
@@ -56,6 +60,7 @@ function countInSlot(s){return roster[s].length;}
 function openSlots(s){return rosterConfig.find(rc=>rc.slot===s).limit - countInSlot(s);}
 function computeStartersFilled(){ return ["QB","RB","WR","TE","FLEX","DST","K"].reduce((n,s)=>n+countInSlot(s),0); }
 function cheer(){ try{ document.getElementById("cheer").play(); }catch(e){} }
+function trombone(){ try{ document.getElementById("trombone").play(); }catch(e){} }
 function isValuePick(p){ const d=parseFloat(p["ECR VS ADP"]); return !isNaN(d)&&d<=-3; }
 function sum(a){return a.reduce((x,y)=>x+y,0);}
 function unique(a){return [...new Set(a)];}
@@ -164,7 +169,6 @@ async function loadLeagueJSON(){
       rivalries = [];
     }
 
-    // Header banners for Joe
     renderHeaderBannersForOwner("Joe");
   }catch(e){ console.error("Failed to load league JSON", e); }
 }
@@ -203,7 +207,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     renderHistory();
   });
 
-  // Draft inputs/sorting
+  // Draft UI events
   document.getElementById("search")?.addEventListener("input",renderTable);
   document.getElementById("positionFilter")?.addEventListener("change",renderTable);
   document.getElementById("availabilityFilter")?.addEventListener("change",renderTable);
@@ -224,11 +228,11 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById("clearFilters")?.addEventListener("click", resetAllFacetsToAll);
   document.getElementById("exportCsv")?.addEventListener("click", exportHistoryCsv);
 
-  // Sidebar: rivalry + postseason chips (static from data)
+  // Sidebar quick bits
   renderDraftRivalry();
   renderSidebarPostseason(DEFAULT_TEAM_FOR_RIVALRY);
 
-  // Draft CSV
+  // Draft CSV upload
   const csv=document.getElementById("csvFile");
   if(csv){
     csv.addEventListener("change", function(e){
@@ -358,7 +362,7 @@ function renderSidebarPostseason(team){
   wrap.innerHTML = `
     <div class="pill">🏆 Champs: ${champs.length}${champs.length?` (${champs.join(", ")})`:""}</div>
     <div class="pill">🔥 Byes: ${byes.length}${byes.length?` (${byes.join(", ")})`:""}</div>
-    <div class="pill">🪦 Saunders: ${sauYears.length}${sauYears.length?` (${sauYears.join(", ")})`:""}</div>
+    <div class="pill">🪦 Saunders: ${sauYears.length}${saundersYears?` (${sauYears.join(", ")})`:""}</div>
   `;
 }
 
@@ -559,6 +563,7 @@ function renderHistory(){
 
   const filtered = applyFacetFilters(leagueGames);
   renderAggStats(selectedTeam, filtered);
+  renderFunFacts(selectedTeam, filtered);
   renderOppBreakdown(selectedTeam, filtered);
   renderSeasonRecap(selectedTeam);
   renderWeekByWeek(selectedTeam, filtered);
@@ -664,7 +669,7 @@ function renderAggStats(team, games){
   renderSeasonCallout(team);
 }
 
-/* ---- Season Callout ---- */
+/* ---- Season Callout + FX ---- */
 function seasonSummaryLookup(team, season){ return seasonSummaries.find(r=>r.owner===team && +r.season===+season); }
 function renderSeasonCallout(team){
   const callout=document.getElementById('seasonCallout'); if(!callout) return; callout.innerHTML="";
@@ -672,6 +677,15 @@ function renderSeasonCallout(team){
   if(selectedSeasons.size===1){
     const [onlySeason]=[...selectedSeasons];
     const rec=seasonSummaryLookup(team, onlySeason); if(!rec) return;
+
+    // Trigger FX once per (team,season,outcome)
+    const key = `${team}|${onlySeason}|${rec.champion?'C':''}${rec.saunders?'S':''}`;
+    if (key !== lastEffectKey) {
+      lastEffectKey = key;
+      if (rec.champion) triggerCrownRain();
+      else if (rec.saunders) triggerSaundersFog();
+    }
+
     const bits=[];
     if(rec.champion) bits.push("🏆 Champion" + (champNote(team, onlySeason) ? "*" : ""));
     if(rec.bye) bits.push("🔥 Top-2 Seed");
@@ -689,7 +703,144 @@ function renderSeasonCallout(team){
       <div>${bits.join(" • ")||"—"}</div>
       ${notes.length ? `<div class="muted" style="margin-top:6px;font-size:12px">* ${notes.join(" • ")}</div>` : ""}
     </div>`;
+  } else {
+    lastEffectKey = null; // reset when not a single-season view
   }
+}
+
+/* ---------- FUN FACTS ---------- */
+function isTwoWeek2014(g){
+  // Exclude 2014 non-regular games (two-week playoffs that season)
+  return (+g.season === 2014) && !isRegularGame(g);
+}
+
+function weekLabelFor(team, g){
+  const wk = g._weekByTeam && g._weekByTeam[team];
+  return wk ? `Wk ${wk} ${g.season}` : `${g.season}`;
+}
+
+function renderFunFacts(team, games){
+  const box = document.getElementById('funFacts');
+  const lists = document.getElementById('funLists');
+  if(!box || !lists) return;
+
+  if(team===ALL_TEAMS){
+    box.innerHTML = `<div class="stat"><div class="label">League View</div><div class="value">Pick a team</div></div>`;
+    lists.innerHTML = "";
+    return;
+  }
+
+  // Highest score (single)
+  let hi = null;
+  // Biggest blowout (wins only)
+  let blow = null;
+
+  // For top5/low5, ignore 2014 playoffs
+  const perGame = [];
+  const orderedAsc = games.slice().sort(byDateAsc);
+
+  // Longest streaks with ranges
+  let lwLen=0, llLen=0;
+  let curType=null, curLen=0, curStart=null, curEnd=null;
+  let lwStart=null, lwEnd=null, llStart=null, llEnd=null;
+
+  function finalizeCurrent(){
+    if(!curType || curLen<=0) return;
+    if(curType==='W' && curLen>lwLen){ lwLen=curLen; lwStart=curStart; lwEnd=curEnd; }
+    if(curType==='L' && curLen>llLen){ llLen=curLen; llStart=curStart; llEnd=curEnd; }
+  }
+
+  for(const g of orderedAsc){
+    const s = sidesForTeam(g, team); if(!s) continue;
+
+    // highest score
+    if(!hi || s.pf > hi.pf) hi = { pf:s.pf, pa:s.pa, date:g.date, opp:s.opp };
+
+    // blowout (wins only)
+    if(s.result==='W'){
+      const margin = s.pf - s.pa;
+      if(!blow || margin > blow.margin) blow = { margin, date:g.date, opp:s.opp, pf:s.pf, pa:s.pa };
+    }
+
+    // Build list item (excluding 2014 two-week playoffs for lists only)
+    if(!isTwoWeek2014(g)){
+      perGame.push({
+        pf:s.pf, pa:s.pa, date:g.date, opp:s.opp, season:+g.season, type:normType(g.type), g
+      });
+    }
+
+    // Streaks (ties break)
+    if(s.result==='T'){
+      finalizeCurrent();
+      curType=null; curLen=0; curStart=null; curEnd=null;
+    }else{
+      if(curType===s.result){
+        curLen++; curEnd=g;
+      }else{
+        finalizeCurrent();
+        curType=s.result; curLen=1; curStart=g; curEnd=g;
+      }
+    }
+  }
+  // flush last streak
+  finalizeCurrent();
+
+  // Top 5 lists
+  const hi5 = perGame.slice().sort((a,b)=> b.pf - a.pf || new Date(b.date)-new Date(a.date)).slice(0,5);
+  const lo5 = perGame.slice().sort((a,b)=> a.pf - b.pf || new Date(a.date)-new Date(b.date)).slice(0,5);
+
+  // Tiles
+  const tile=(label,val,sub="")=>`<div class="stat"><div class="label">${label}</div><div class="value">${val}</div>${sub?`<div class="label" style="margin-top:4px">${sub}</div>`:""}</div>`;
+  const lwSub = lwLen>0 && lwStart && lwEnd ? `${lwStart.date} → ${lwEnd.date} (${weekLabelFor(team,lwStart)} → ${weekLabelFor(team,lwEnd)})` : "";
+  const llSub = llLen>0 && llStart && llEnd ? `${llStart.date} → ${llEnd.date} (${weekLabelFor(team,llStart)} → ${weekLabelFor(team,llEnd)})` : "";
+
+  box.innerHTML = [
+    tile("Highest Score", hi? hi.pf.toFixed(2) : "—", hi? `${hi.date} vs ${hi.opp} (${hi.pa.toFixed(2)} allowed)`:""),
+    tile("Biggest Blowout", blow? `+${blow.margin.toFixed(2)}`:"—", blow? `${blow.date} vs ${blow.opp} (${blow.pf.toFixed(2)}–${blow.pa.toFixed(2)})`:""),
+    tile("Longest Win Streak", lwLen || 0, lwSub || "—"),
+    tile("Longest Losing Streak", llLen || 0, llSub || "—"),
+    // Week crowns: count dates where your score equals league max that date
+    (()=>{
+      const datesPlayed = unique(orderedAsc.map(g=> (sidesForTeam(g,team)? g.date : null)).filter(Boolean));
+      let crowns = 0;
+      for(const d of datesPlayed){
+        const dayGames = leagueGames.filter(x=>x.date===d);
+        const maxScore = Math.max(...dayGames.flatMap(x=>[x.scoreA, x.scoreB]));
+        const meGame = orderedAsc.find(x=>x.date===d && sidesForTeam(x,team));
+        const meScore = meGame ? (meGame.teamA===team ? meGame.scoreA : meGame.scoreB) : -Infinity;
+        if(meScore === maxScore) crowns++;
+      }
+      return tile("Top-Week Crowns", crowns || 0, crowns? "Led league in points on those dates":"");
+    })()
+  ].join("");
+
+  // Lists
+  const row = (r)=>`<tr>
+    <td>${r.pf.toFixed(2)} – ${r.pa.toFixed(2)}</td>
+    <td>${r.opp}</td>
+    <td>${r.date}</td>
+  </tr>`;
+
+  lists.innerHTML = `
+    <div class="mini">
+      <div class="mini-title">Top 5 Highest Scoring Games ${selectedSeasons.size===0?"(all seasons)":""}</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Opponent</th><th>Date</th></tr></thead>
+          <tbody>${hi5.map(row).join("") || `<tr><td colspan="3" class="muted">—</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Bottom 5 Lowest Scoring Games ${selectedSeasons.size===0?"(all seasons)":""}</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Opponent</th><th>Date</th></tr></thead>
+          <tbody>${lo5.map(row).join("") || `<tr><td colspan="3" class="muted">—</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 /* ---- Opponent/Team Breakdown (+ rivalry callouts) ---- */
@@ -701,7 +852,6 @@ function renderOppBreakdown(team, games){
   const calloutsBox=document.getElementById('rivalGroupCallouts');
   if(calloutsBox) calloutsBox.innerHTML="";
 
-  // Helper for group detection vs currently selected opponents
   const groupMatched = (members, selfTeam=null)=>{
     const memExSelf = selfTeam ? members.filter(m=>m!==selfTeam) : members.slice();
     if(memExSelf.length===0) return false;
@@ -750,7 +900,6 @@ function renderOppBreakdown(team, games){
       </tr>
     `).join("");
 
-    // NEW: Nudge if a rivalry group is selected in League view
     if (calloutsBox && rivalries.length) {
       const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
       if (oppRestrictive) {
@@ -799,12 +948,11 @@ function renderOppBreakdown(team, games){
     </tr>
   `).join("");
 
-  // --- Rival callouts (EASTER EGGS) ---
+  // Rival callouts (EASTER EGGS)
   if(calloutsBox && rivalries.length){
     const active=[];
     const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
 
-    // GROUPS: require all members (excluding self, if present) to be selected
     const groups = rivalries.filter(r=> (r.type||"group").toLowerCase()==="group");
     for(const grp of groups){
       if (oppRestrictive && groupMatched(grp.members, team)) {
@@ -822,7 +970,6 @@ function renderOppBreakdown(team, games){
       }
     }
 
-    // PAIRS: require counterpart selected
     const pairs = rivalries.filter(r=> (r.type||"pair").toLowerCase()==="pair" && (r.members||[]).length===2);
     for(const pr of pairs){
       const [a,b] = pr.members;
@@ -979,6 +1126,35 @@ function exportHistoryCsv(){
   const blob=new Blob([lines.join('\n')],{type:'text/csv'});
   const url=URL.createObjectURL(blob); const a=document.createElement('a');
   a.href=url; a.download=`history_${selectedTeam}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* ---------- FX helpers ---------- */
+function triggerCrownRain(){
+  const wrap = document.getElementById('fxCrown'); if(!wrap) return;
+  wrap.innerHTML = ""; wrap.style.display = "block";
+  const N = 28;
+  let cleared = 0;
+  for(let i=0;i<N;i++){
+    const s = document.createElement('span');
+    s.className = 'crown';
+    s.textContent = '👑';
+    s.style.left = Math.random()*100 + 'vw';
+    s.style.animationDuration = (1.8 + Math.random()*1.0) + 's';
+    s.style.animationDelay = (Math.random()*0.5)+'s';
+    s.style.fontSize = (20 + Math.random()*12) + 'px';
+    wrap.appendChild(s);
+    s.addEventListener('animationend', ()=>{
+      s.remove(); cleared++;
+      if(cleared===N) wrap.style.display='none';
+    });
+  }
+  setTimeout(()=>{ wrap.style.display='none'; wrap.innerHTML=""; }, 3000);
+}
+function triggerSaundersFog(){
+  const fog = document.getElementById('fxSaunders'); if(!fog) return;
+  fog.style.display='block';
+  trombone();
+  setTimeout(()=>{ fog.style.display='none'; }, 2000);
 }
 
 /* ---------- Test exports (node-friendly) ---------- */

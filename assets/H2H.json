@@ -1782,17 +1782,6 @@
     "type": "Regular"
   },
   {
-    "season": 2024,
-    "date": "2024-12-15",
-    "teamA": "Joe",
-    "teamB": "Singer",
-    "scoreA": 174.4,
-    "scoreB": 95.28,
-    "week": null,
-    "round": "Wild Card",
-    "type": "Playoff"
-  },
-  {
     "season": 2015,
     "date": "2015-10-04",
     "teamA": "Joel",
@@ -7764,17 +7753,6 @@
     "week": null,
     "round": "Saunders Round 1",
     "type": "Saunders"
-  },
-  {
-    "season": 2024,
-    "date": "2024-11-17",
-    "teamA": "Plot",
-    "teamB": "Joel",
-    "scoreA": 122.42,
-    "scoreB": 106.48,
-    "week": null,
-    "round": null,
-    "type": "Regular"
   },
   {
     "season": 2015,
