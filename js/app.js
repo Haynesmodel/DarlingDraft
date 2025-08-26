@@ -893,6 +893,8 @@ function renderFunFacts(team, games){
 }
 
 /* ---- Opponent/Team Breakdown (+ rivalry callouts) ---- */
+
+
 function renderOppBreakdown(team, games){
   const titleEl=document.getElementById('oppTableTitle');
   const firstCol=document.getElementById('oppFirstCol');
@@ -901,11 +903,37 @@ function renderOppBreakdown(team, games){
   const calloutsBox=document.getElementById('rivalGroupCallouts');
   if(calloutsBox) calloutsBox.innerHTML="";
 
-  const groupMatched = (members, selfTeam=null)=>{
-    const memExSelf = selfTeam ? members.filter(m=>m!==selfTeam) : members.slice();
+  const rivalList = (typeof rivalries !== 'undefined' && Array.isArray(rivalries)) ? rivalries : [];
+
+  // Subset match (stats only)
+  const groupMatched=(members,selfTeam=null)=>{
+    const selOppLower=new Set([...selectedOpponents].map(s=>s.toLowerCase()));
+    const memExSelf=(selfTeam?members.filter(m=>m!==selfTeam):members.slice()).map(m=>m.toLowerCase());
     if(memExSelf.length===0) return false;
-    const selOppLower = new Set([...selectedOpponents].map(s=>s.toLowerCase()));
-    return memExSelf.every(m => selOppLower.has(m.toLowerCase()));
+    return memExSelf.every(m=>selOppLower.has(m));
+  };
+
+  // Exact set match (FX/background) — selection must equal members (minus self in single-team mode)
+  const exactSetMatch=(members,selfTeam=null)=>{
+    const selSet=new Set([...selectedOpponents].map(s=>s.toLowerCase()));
+    const memExSelf=selfTeam?members.filter(m=>m!==selfTeam):members.slice();
+    const groupSet=new Set(memExSelf.map(m=>m.toLowerCase()));
+    if(selSet.size!==groupSet.size) return false;
+    for(const m of groupSet){ if(!selSet.has(m)) return false; }
+    return true;
+  };
+
+  // Treat certain pairs as "groups" for FX/backdrop if they have slugs
+  const isFxEligible=(r)=>{
+    const t=(r.type||"group").toLowerCase();
+    return t==="group" || (t==="pair" && r.slug && (r.slug==="nuss-rishi" || r.slug==="singer-nuss"));
+  };
+
+  // Helper to set/clear persistent backdrop
+  const setBackdrop = (slug) => {
+    if (window.setGroupBackdrop) {
+      try { window.setGroupBackdrop(slug||null); } catch(e){}
+    }
   };
 
   if(team===ALL_TEAMS){
@@ -913,32 +941,31 @@ function renderOppBreakdown(team, games){
     firstCol.textContent="Team";
 
     const map=new Map();
-    const useWeek = isRestrictive(selectedWeeks, universe.weeks);
+    const useWeek = (typeof isRestrictive === 'function') ? isRestrictive(selectedWeeks, universe.weeks) : false;
 
     for(const g of games){
-      const sides = [
-        { team: g.teamA, pf: g.scoreA, pa: g.scoreB, win: g.scoreA>g.scoreB, tie: g.scoreA===g.scoreB },
-        { team: g.teamB, pf: g.scoreB, pa: g.scoreA, win: g.scoreB>g.scoreA, tie: g.scoreB===g.scoreA },
+      const sides=[
+        { team:g.teamA, pf:g.scoreA, pa:g.scoreB, win:g.scoreA>g.scoreB, tie:g.scoreA===g.scoreB },
+        { team:g.teamB, pf:g.scoreB, pa:g.scoreA, win:g.scoreB>g.scoreA, tie:g.scoreB===g.scoreA },
       ];
       for(const side of sides){
         if(useWeek){
-          const w = (g._weekByTeam && g._weekByTeam[side.team]) || null;
+          const w=(g._weekByTeam && g._weekByTeam[side.team])||null;
           if(!w || !selectedWeeks.has(w)) continue;
         }
         const r=map.get(side.team)||{w:0,l:0,t:0,pf:0,pa:0,n:0};
         if(side.tie) r.t++; else if(side.win) r.w++; else r.l++;
-        r.pf += side.pf; r.pa += side.pa; r.n++;
-        map.set(side.team, r);
+        r.pf+=side.pf; r.pa+=side.pa; r.n++; map.set(side.team, r);
       }
     }
 
     const rows=[...map.entries()].map(([team,r])=>({
       team, ...r,
       pct:(r.w+0.5*r.t)/Math.max(1,(r.w+r.l+r.t)),
-      ppg: r.n? (r.pf/r.n):0, oppg: r.n? (r.pa/r.n):0
+      ppg:r.n?(r.pf/r.n):0, oppg:r.n?(r.pa/r.n):0
     })).sort((a,b)=> b.pct-a.pct || b.w-a.w || a.l-b.l || a.team.localeCompare(b.team));
 
-    tb.innerHTML = rows.map(r=>`
+    tb.innerHTML=rows.map(r=>`
       <tr>
         <td>${r.team}</td>
         <td>${r.w}-${r.l}-${r.t}</td>
@@ -949,22 +976,36 @@ function renderOppBreakdown(team, games){
       </tr>
     `).join("");
 
-    if (calloutsBox && rivalries.length) {
-      const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
-      if (oppRestrictive) {
-        const matched = rivalries
-          .filter(r => (r.type||"group").toLowerCase()==="group")
-          .filter(r => groupMatched(r.members, null))
-          .map(r => r.name);
-        if (matched.length) {
-          calloutsBox.innerHTML = `
-            <div class="callout">
-              <div>👀 Rivalry group matched: <strong>${matched.join(", ")}</strong></div>
-              <div class="muted" style="margin-top:4px;font-size:12px">
-                Pick a specific Team to see that team's record vs this group.
-              </div>
-            </div>`;
+    if(calloutsBox && rivalList.length){
+      const oppRestrictive = (typeof isRestrictive === 'function') ? isRestrictive(selectedOpponents, universe.opponents) : false;
+
+      // Stats callouts for subset groups
+      const statGroups = rivalList.filter(r => (r.type||"group").toLowerCase()==="group" && groupMatched(r.members, null));
+      if (statGroups.length){
+        calloutsBox.innerHTML = statGroups.map(r=>`
+          <div class="callout">
+            <div>👀 <strong>${r.name}</strong></div>
+          </div>
+        `).join("");
+      }
+
+      // FX + persistent background only for exact largest match
+      if (oppRestrictive){
+        const exact = rivalList.filter(r => isFxEligible(r) && exactSetMatch(r.members, null));
+        if (exact.length){
+          exact.sort((a,b)=> (b.members.length - a.members.length));
+          const top = exact[0];
+          if (top.slug){
+            if (window.triggerGroupEgg) { try{ window.triggerGroupEgg(top.slug); }catch(e){} }
+            setBackdrop(top.slug);
+          } else {
+            setBackdrop(null);
+          }
+        } else {
+          setBackdrop(null);
         }
+      } else {
+        setBackdrop(null);
       }
     }
     return;
@@ -982,11 +1023,12 @@ function renderOppBreakdown(team, games){
     r.pf+=s.pf; r.pa+=s.pa; r.n++; map.set(s.opp, r);
   }
   const rows=[...map.entries()].map(([opp,r])=>({
-    opp, ...r, pct:(r.w+0.5*r.t)/Math.max(1,(r.w+r.l+r.t)),
-    ppg: r.n? (r.pf/r.n):0, oppg: r.n? (r.pa/r.n):0
+    opp, ...r,
+    pct:(r.w+0.5*r.t)/Math.max(1,(r.w+r.l+r.t)),
+    ppg:r.n?(r.pf/r.n):0, oppg:r.n?(r.pa/r.n):0
   })).sort((a,b)=> b.pct-a.pct || b.w-a.w || a.l-b.l || a.opp.localeCompare(b.opp));
 
-  tb.innerHTML = rows.map(r=>`
+  tb.innerHTML=rows.map(r=>`
     <tr>
       <td>${r.opp}</td>
       <td>${r.w}-${r.l}-${r.t}</td>
@@ -997,15 +1039,15 @@ function renderOppBreakdown(team, games){
     </tr>
   `).join("");
 
-  // Rival callouts (EASTER EGGS)
-  if(calloutsBox && rivalries.length){
+  if(calloutsBox && rivalList.length){
     const active=[];
-    const oppRestrictive = isRestrictive(selectedOpponents, universe.opponents);
+    const oppRestrictive = (typeof isRestrictive === 'function') ? isRestrictive(selectedOpponents, universe.opponents) : false;
 
-    const groups = rivalries.filter(r=> (r.type||"group").toLowerCase()==="group");
-    for(const grp of groups){
-      if (oppRestrictive && groupMatched(grp.members, team)) {
-        const vsMembers = grp.members.filter(m=>m!==team);
+    // Stats callouts for subset groups (restore full stats)
+    const groups = rivalList.filter(r => (r.type||"group").toLowerCase()==="group");
+    for (const grp of groups){
+      if (oppRestrictive && groupMatched(grp.members, team)){
+        const vsMembers = grp.members.filter(m => m !== team);
         const s = aggregateVsOpps(team, games, vsMembers);
         active.push(`
           <div class="callout">
@@ -1019,27 +1061,27 @@ function renderOppBreakdown(team, games){
       }
     }
 
-    const pairs = rivalries.filter(r=> (r.type||"pair").toLowerCase()==="pair" && (r.members||[]).length===2);
-    for(const pr of pairs){
-      const [a,b] = pr.members;
-      if (!(team===a || team===b)) continue;
-      const counterpart = team===a ? b : a;
-      if (oppRestrictive && selectedOpponents.has(counterpart)) {
-        const s = aggregateVsOpps(team, games, [counterpart]);
-        active.push(`
-          <div class="callout">
-            <div>🔥 <strong>${pr.name}</strong> — ${s.w}-${s.l}-${s.t} (${fmtPct(s.w,s.l,s.t)})</div>
-            <div class="muted" style="margin-top:4px;font-size:12px">
-              PPG: ${s.ppg.toFixed(2)} • OPPG: ${s.oppg.toFixed(2)} • (within current filters)
-            </div>
-          </div>
-        `);
+    // FX + persistent background for exact largest match (groups + special pairs)
+    const candidates = rivalList.filter(r => isFxEligible(r));
+    const exact = candidates.filter(r => oppRestrictive && exactSetMatch(r.members, team));
+    if (exact.length){
+      exact.sort((a,b)=> (b.members.length - a.members.length));
+      const top = exact[0];
+      if (top.slug){
+        if (window.triggerGroupEgg) { try{ window.triggerGroupEgg(top.slug); }catch(e){} }
+        setBackdrop(top.slug);
+      } else {
+        setBackdrop(null);
       }
+    } else {
+      setBackdrop(null);
     }
 
     calloutsBox.innerHTML = active.join("");
   }
 }
+
+
 function aggregateVsOpps(team, games, members){
   let w=0,l=0,t=0,pf=0,pa=0,n=0;
   const memLower = members.map(m=>m.toLowerCase());

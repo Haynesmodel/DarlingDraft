@@ -39,6 +39,14 @@
   
     { "slug": "educated", "name": "Educated", "type": "group",
       "members": ["Zook", "Nuss", "Joel"] },
+
+    {
+        "name": "Birds Clinch",
+        "type": "group",
+        "slug": "birds-clinch",
+        "members": ["Joel", "Connor", "Shap", "Plot"]
+    },
+      
   
     { "slug": "sec", "name": "SEC", "type": "group",
       "members": ["Connor", "Singer"] }
