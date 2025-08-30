@@ -763,6 +763,7 @@ function luckSummary(team, games){
   return { exp, act, luck: act - exp };
 }
 
+
 function renderFunFacts(team, games){
   const box = document.getElementById('funFacts');
   const lists = document.getElementById('funLists');
@@ -774,16 +775,13 @@ function renderFunFacts(team, games){
     return;
   }
 
-  // Highest score (single)
   let hi = null;
-  // Biggest blowout (wins only)
   let blow = null;
+  let loss = null;
 
-  // For top5/low5, ignore 2014 playoffs
   const perGame = [];
   const orderedAsc = games.slice().sort(byDateAsc);
 
-  // Longest streaks with ranges
   let lwLen=0, llLen=0;
   let curType=null, curLen=0, curStart=null, curEnd=null;
   let lwStart=null, lwEnd=null, llStart=null, llEnd=null;
@@ -797,23 +795,23 @@ function renderFunFacts(team, games){
   for(const g of orderedAsc){
     const s = sidesForTeam(g, team); if(!s) continue;
 
-    // highest score
     if(!hi || s.pf > hi.pf) hi = { pf:s.pf, pa:s.pa, date:g.date, opp:s.opp };
 
-    // blowout (wins only)
     if(s.result==='W'){
       const margin = s.pf - s.pa;
       if(!blow || margin > blow.margin) blow = { margin, date:g.date, opp:s.opp, pf:s.pf, pa:s.pa };
     }
+    if(s.result==='L'){
+      const margin = s.pa - s.pf;
+      if(!loss || margin > loss.margin) loss = { margin, date:g.date, opp:s.opp, pf:s.pf, pa:s.pa };
+    }
 
-    // Build list item (excluding 2014 two-week playoffs for lists only)
     if(!isTwoWeek2014(g)){
       perGame.push({
         pf:s.pf, pa:s.pa, date:g.date, opp:s.opp, season:+g.season, type:normType(g.type), g
       });
     }
 
-    // Streaks (ties break)
     if(s.result==='T'){
       finalizeCurrent();
       curType=null; curLen=0; curStart=null; curEnd=null;
@@ -826,17 +824,26 @@ function renderFunFacts(team, games){
       }
     }
   }
-  // flush last streak
   finalizeCurrent();
 
-  // Top 5 lists
   const hi5 = perGame.slice().sort((a,b)=> b.pf - a.pf || new Date(b.date)-new Date(a.date)).slice(0,5);
   const lo5 = perGame.slice().sort((a,b)=> a.pf - b.pf || new Date(a.date)-new Date(b.date)).slice(0,5);
 
-  // Luck (expected wins) over current filtered regular-season games
   const { exp, act, luck } = luckSummary(team, games);
 
-  // Tiles
+  let crowns = 0, turds = 0;
+  const datesPlayed = unique(orderedAsc.map(g=> (sidesForTeam(g,team)? g.date : null)).filter(Boolean));
+  for(const d of datesPlayed){
+    const dayGames = leagueGames.filter(x=>x.date===d);
+    if(dayGames.some(isTwoWeek2014)) continue; // skip 2014 double-weeks
+    const maxScore = Math.max(...dayGames.flatMap(x=>[x.scoreA, x.scoreB]));
+    const minScore = Math.min(...dayGames.flatMap(x=>[x.scoreA, x.scoreB]));
+    const meGame = orderedAsc.find(x=>x.date===d && sidesForTeam(x,team));
+    const meScore = meGame ? (meGame.teamA===team ? meGame.scoreA : meGame.scoreB) : -Infinity;
+    if(meScore === maxScore) crowns++;
+    if(meScore === minScore) turds++;
+  }
+
   const tile=(label,val,sub="")=>`<div class="stat"><div class="label">${label}</div><div class="value">${val}</div>${sub?`<div class="label" style="margin-top:4px">${sub}</div>`:""}</div>`;
   const lwSub = lwLen>0 && lwStart && lwEnd ? `${lwStart.date} → ${lwEnd.date} (${weekLabelFor(team,lwStart)} → ${weekLabelFor(team,lwEnd)})` : "";
   const llSub = llLen>0 && llStart && llEnd ? `${llStart.date} → ${llEnd.date} (${weekLabelFor(team,llStart)} → ${weekLabelFor(team,llEnd)})` : "";
@@ -844,26 +851,15 @@ function renderFunFacts(team, games){
   box.innerHTML = [
     tile("Highest Score", hi? hi.pf.toFixed(2) : "—", hi? `${hi.date} vs ${hi.opp} (${hi.pa.toFixed(2)} allowed)`:""),
     tile("Biggest Blowout", blow? `+${blow.margin.toFixed(2)}`:"—", blow? `${blow.date} vs ${blow.opp} (${blow.pf.toFixed(2)}–${blow.pa.toFixed(2)})`:""),
+    tile("Biggest Loss", loss? `-${loss.margin.toFixed(2)}`:"—", loss? `${loss.date} vs ${loss.opp} (${loss.pf.toFixed(2)}–${loss.pa.toFixed(2)})`:""),
     tile("Longest Win Streak", lwLen || 0, lwSub || "—"),
     tile("Longest Losing Streak", llLen || 0, llSub || "—"),
-    (()=>{
-      // Top-Week Crowns (led league in points on that date)
-      const datesPlayed = unique(orderedAsc.map(g=> (sidesForTeam(g,team)? g.date : null)).filter(Boolean));
-      let crowns = 0;
-      for(const d of datesPlayed){
-        const dayGames = leagueGames.filter(x=>x.date===d);
-        const maxScore = Math.max(...dayGames.flatMap(x=>[x.scoreA, x.scoreB]));
-        const meGame = orderedAsc.find(x=>x.date===d && sidesForTeam(x,team));
-        const meScore = meGame ? (meGame.teamA===team ? meGame.scoreA : meGame.scoreB) : -Infinity;
-        if(meScore === maxScore) crowns++;
-      }
-      return tile("Top-Week Crowns", crowns || 0, crowns? "Led league in points on those dates":"");
-    })(),
+    tile("Top-Week Crowns", crowns || 0, crowns? "Led league in points on those dates":""),
+    tile("Bottom-Week Turds", turds || 0, turds? "Lowest score league-wide on those dates":""),
     tile("Luck (Actual − Expected)", luck ? (luck>0?`+${luck.toFixed(2)}`:luck.toFixed(2)) : (luck===0 ? "0.00" : "—"),
          (Number.isFinite(exp) ? `Actual: ${act.toFixed(2)} • Expected: ${exp.toFixed(2)} (regular season only)` : "—"))
   ].join("");
 
-  // Lists
   const row = (r)=>`<tr>
     <td>${r.pf.toFixed(2)} – ${r.pa.toFixed(2)}</td>
     <td>${r.opp}</td>
@@ -891,6 +887,7 @@ function renderFunFacts(team, games){
     </div>
   `;
 }
+
 
 /* ---- Opponent/Team Breakdown (+ rivalry callouts) ---- */
 
@@ -1095,6 +1092,7 @@ function aggregateVsOpps(team, games, members){
 }
 
 /* ---- Season Recap (team only) ---- */
+
 function renderSeasonRecap(team){
   const tb=document.querySelector('#seasonRecapTable tbody'); if(!tb) return;
   if(team===ALL_TEAMS){ tb.innerHTML=`<tr><td colspan="4" class="muted">Select a team to see season recap.</td></tr>`; return; }
@@ -1103,15 +1101,26 @@ function renderSeasonRecap(team){
   if(isRestrictive(selectedSeasons, universe.seasons)) rows = rows.filter(r=>selectedSeasons.has(+r.season));
   rows.sort((a,b)=>b.season-a.season);
 
-  const fmtTriplet = (w=0,l=0,t=0) => `${w||0}-${l||0}-${t||0}`;
+  function playoffNarrative(season){
+    const games = leagueGames.filter(g=>+g.season===+season && (g.teamA===team||g.teamB===team) && isPlayoffGame(g)).sort((a,b)=>roundOrder(a.round)-roundOrder(b.round));
+    if(!games.length) return "";
+    let narrative=[];
+    for(const g of games){
+      const s=sidesForTeam(g,team); if(!s) continue;
+      const opp=s.opp; const round=normRound(g.round)||"Playoff";
+      if(s.result==='W') narrative.push(`Defeated ${opp} in ${round}`);
+      else if(s.result==='L') narrative.push(`Lost in ${round} to ${opp}`);
+    }
+    return narrative.join(", ");
+  }
 
   const mkOutcome = (r)=>{
+    if (r.champion) return `Champion${champNote(team, +r.season) ? "*" : ""}`;
+    const narr=playoffNarrative(r.season);
+    if(narr) return narr;
     const pW=r.playoff_wins||0, pL=r.playoff_losses||0, pT=r.playoff_ties||0;
     const sW=r.saunders_wins||0, sL=r.saunders_losses||0, sT=r.saunders_ties||0;
-
-    if (r.champion) return `Champion${champNote(team, +r.season) ? "*" : ""}`;
-    if ((pW+pL+pT) > 0) return `Playoffs (${fmtTriplet(pW,pL,pT)})`;
-    if (r.saunders === true || (sW+sL+sT) > 0) return `Saunders${saundersNote(team, +r.season) ? "*" : ""} (${fmtTriplet(sW,sL,sT)})`;
+    if (r.saunders===true || (sW+sL+sT)>0) return `Saunders${saundersNote(team, +r.season) ? "*" : ""} (${sW}-${sL}-${sT})`;
     if (r.bye) return "Top-2 Seed";
     return "—";
   };
@@ -1125,6 +1134,7 @@ function renderSeasonRecap(team){
     </tr>
   `).join("");
 }
+
 
 /* ---- Week-by-Week (newest → oldest) with crowns/turds + XW ---- */
 function renderWeekByWeek(team, games){

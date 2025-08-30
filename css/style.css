@@ -137,3 +137,92 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 @keyframes fall{0%{transform:translateY(-10vh) rotate(0deg);opacity:0}100%{transform:translateY(110vh) rotate(360deg);opacity:1}}
 #fxSaunders{position:fixed;inset:0;background:radial-gradient(70% 60% at 50% 30%, rgba(139,92,246,.25), rgba(139,92,246,.5));backdrop-filter:blur(1px);z-index:998;display:none;animation:fadeInOut 2s ease forwards}
 @keyframes fadeInOut{0%{opacity:0}10%{opacity:1}90%{opacity:.9}100%{opacity:0}}
+
+
+/* === Enhancements for Crowns, Turds, Fun Facts, Week-by-Week, and Season Narratives === */
+
+/* Crown + Turd badges */
+.badge-emoji {
+  font-size: 1.1rem;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.badge-emoji.big {
+  font-size: 1.4rem;
+}
+
+.badge-emoji[title*="Top score"] {
+  filter: drop-shadow(0 0 4px gold);
+}
+
+.badge-emoji[title*="Lowest score"] {
+  filter: drop-shadow(0 0 4px brown);
+}
+
+/* Fun Fact Tiles */
+#funFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+#funFacts .stat {
+  background: #f9fafb;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 4px;
+  flex: 1 1 150px;
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+
+#funFacts .stat:hover {
+  transform: scale(1.05);
+  background: #fffbea;
+}
+
+#funFacts .label {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+#funFacts .value {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+/* Week-by-Week Table Styling */
+#weekTable td.score-cell {
+  font-weight: bold;
+}
+
+#weekTable tr.result-win {
+  background: #e6ffed;
+}
+
+#weekTable tr.result-loss {
+  background: #ffe6e6;
+}
+
+#weekTable tr.result-tie {
+  background: #f2f2f2;
+}
+
+#weekTable tr.postseason td {
+  font-style: italic;
+  background: #f0f8ff;
+}
+
+/* Season Narratives */
+#seasonRecapTable td:last-child {
+  font-style: italic;
+  color: #333;
+}
+
+#seasonRecapTable td:last-child::before {
+  content: "📜 ";
+}
