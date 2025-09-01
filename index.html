@@ -2,12 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>The Darling Draft Board</title>
+  <title>The Darling — League History</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Existing libs -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
-  <!-- Your existing styles -->
+  <!-- Existing libs --><!-- Your existing styles -->
   <link rel="stylesheet" href="css/style.css" />
   
   <!-- Group Easter Eggs styles -->
@@ -22,85 +19,12 @@
     </div>
   </header>
 
-  <nav class="tabs">
-    <button class="tab active" id="tabDraftBtn">Draft Board</button>
-    <button class="tab" id="tabHistoryBtn">League History</button>
+  <nav class="tabs"><button class="tab active" id="tabHistoryBtn">League History</button>
   </nav>
 
   <main>
-    <!-- DRAFT PAGE -->
-    <section id="page-draft" class="page visible">
-      <div class="main">
-        <div class="card">
-          <div class="controls" id="controlsBar">
-            <input type="text" id="search" placeholder="Search players (name/team)..." />
-            <select id="positionFilter">
-              <option value="">All Positions</option>
-              <option value="QB">QB</option>
-              <option value="RB">RB</option>
-              <option value="WR">WR</option>
-              <option value="TE">TE</option>
-              <option value="FLEX">Flex (RB/WR/TE)</option>
-              <option value="DST">DST</option>
-              <option value="K">K</option>
-            </select>
-            <select id="availabilityFilter">
-              <option value="all">All Players</option>
-              <option value="available">Available Only</option>
-              <option value="drafted">Drafted Only</option>
-            </select>
-            <input type="file" id="csvFile" accept=".csv" />
-            <span style="flex:1"></span>
-            <button class="btn reset" id="resetBtn">Reset Draft</button>
-          </div>
-
-          <div class="table-wrap">
-            <table id="playersTable">
-              <thead>
-                <tr>
-                  <th data-col="RK">Rank</th>
-                  <th data-col="PLAYER NAME">Player</th>
-                  <th data-col="POS">Pos</th>
-                  <th data-col="TEAM">Team</th>
-                  <th data-col="BYE">Bye</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="sidebar">
-        <div class="sidebar-scroll">
-          <div class="card">
-            <h3>Joe’s Legacy</h3>
-            <div class="kpi">
-              <div class="pill">🏆 2× Champion (2021, 2023)</div>
-              <div class="pill">🥇 3× Reg. Season (2014, 2017, 2022)</div>
-              <div class="pill">🔥 12-2 in 2022</div>
-              <div class="pill">📈 85-60-1 all-time</div>
-            </div>
-            <div class="kpi" id="postKpis"></div>
-
-            <div id="rivalry"></div>
-            <div id="trashTalk" class="muted"></div>
-          </div>
-
-          <div class="card">
-            <h3>My Team</h3>
-            <div class="needs" id="needsBar"></div>
-            <div class="progress"><div id="progressFill"></div></div>
-            <div class="warnings" id="byeWarnings"></div>
-            <div id="rosterSlots"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- HISTORY PAGE -->
-    <section id="page-history" class="page">
+    <section id="page-history" class="page visible">
       <div class="card">
         <div class="controls filters">
           <label>Team:
@@ -198,6 +122,9 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+      </div>
+
       <!-- Week-by-Week Table -->
       <div class="card">
         <h3>Week-by-Week</h3>
@@ -239,9 +166,6 @@
             </thead>
             <tbody></tbody>
           </table>
-        </div>
-      </div>
-            
         </div>
       </div>
     </section>

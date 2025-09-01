@@ -7,20 +7,6 @@
 ========================================================= */
 
 /* ---------- Global State ---------- */
-let players = [];
-let sortCol = null, sortAsc = true;
-
-const rosterConfig = [
-  { slot: "QB", limit: 1 },
-  { slot: "RB", limit: 2 },
-  { slot: "WR", limit: 2 },
-  { slot: "TE", limit: 1 },
-  { slot: "FLEX", limit: 1, flex: true },
-  { slot: "DST", limit: 1 },
-  { slot: "K", limit: 1 },
-  { slot: "BENCH", limit: 7 }
-];
-let roster = {}; rosterConfig.forEach(rc => (roster[rc.slot] = []));
 
 const startersTotal = 9;
 const DEFAULT_TEAM_FOR_RIVALRY = "Joe";
@@ -55,14 +41,9 @@ const champNote    = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.champs?.[sea
 const saundersNote = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.saunders?.[season] || null;
 
 /* ---------- Utils ---------- */
-const byId = (id)=>players.find(p=>p._id===id);
 function assignIds(){ players.forEach((p,idx)=> p._id = (crypto.randomUUID?crypto.randomUUID():("id_"+Date.now()+"_"+idx))); }
-function countInSlot(s){return roster[s].length;}
-function openSlots(s){return rosterConfig.find(rc=>rc.slot===s).limit - countInSlot(s);}
-function computeStartersFilled(){ return ["QB","RB","WR","TE","FLEX","DST","K"].reduce((n,s)=>n+countInSlot(s),0); }
 function cheer(){ try{ document.getElementById("cheer").play(); }catch(e){} }
 function trombone(){ try{ document.getElementById("trombone").play(); }catch(e){} }
-function isValuePick(p){ const d=parseFloat(p["ECR VS ADP"]); return !isNaN(d)&&d<=-3; }
 function sum(a){return a.reduce((x,y)=>x+y,0);}
 function unique(a){return [...new Set(a)];}
 function byDateAsc(a,b){return new Date(a.date)-new Date(b.date);}
@@ -176,8 +157,10 @@ async function loadLeagueJSON(){
 function showPage(id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('visible'));
-  if(id==='draft'){ document.getElementById('tabDraftBtn').classList.add('active'); document.getElementById('page-draft').classList.add('visible'); }
-  else { document.getElementById('tabHistoryBtn').classList.add('active'); document.getElementById('page-history').classList.add('visible'); }
+  const histBtn = document.getElementById('tabHistoryBtn');
+  const histPage = document.getElementById('page-history');
+  if(histBtn) histBtn.classList.add('active');
+  if(histPage) histPage.classList.add('visible');
 }
 
 /* ---------- Header banners row ---------- */
@@ -197,144 +180,53 @@ function renderHeaderBannersForOwner(owner){
 window.addEventListener('DOMContentLoaded', async ()=>{
   await loadLeagueJSON();
 
-  // Tabs
-  document.getElementById('tabDraftBtn').addEventListener('click', ()=>showPage('draft'));
-  document.getElementById('tabHistoryBtn').addEventListener('click', ()=>{
-    showPage('history');
-    if(!document.getElementById('teamSelect').dataset.ready){
-      buildHistoryControls();
-      document.getElementById('teamSelect').dataset.ready='1';
-    }
-    renderHistory();
-  });
-
-  // Draft UI events
-  document.getElementById("search")?.addEventListener("input",renderTable);
-  document.getElementById("positionFilter")?.addEventListener("change",renderTable);
-  document.getElementById("availabilityFilter")?.addEventListener("change",renderTable);
-  document.querySelectorAll('#playersTable th[data-col]').forEach(th=>{
-    th.addEventListener('click',()=>{ const col=th.getAttribute('data-col'); if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col; sortAsc=true;} renderTable(); });
-  });
+  // Tabs (History only)
+  const histTab = document.getElementById('tabHistoryBtn');
+  if (histTab) {
+    histTab.addEventListener('click', ()=>{
+      showPage('history');
+      const teamSel = document.getElementById('teamSelect');
+      if (teamSel && !teamSel.dataset.ready) {
+        buildHistoryControls();
+        teamSel.dataset.ready = '1';
+      }
+      renderHistory();
+    });
+  }
 
   // Dropdown toggling
-  document.addEventListener("click",(e)=>{
-    document.querySelectorAll(".dropdown").forEach(dd=>{
-      const btn=dd.querySelector(".dropdown-toggle");
-      if(btn && btn.contains(e.target)) dd.classList.toggle("open");
-      else if(!dd.contains(e.target)) dd.classList.remove("open");
+  document.addEventListener('click', (e)=>{
+    document.querySelectorAll('.dropdown').forEach((dd)=>{
+      const btn = dd.querySelector('.dropdown-toggle');
+      if (btn && btn.contains(e.target)) dd.classList.toggle('open');
+      else if (!dd.contains(e.target)) dd.classList.remove('open');
     });
   });
 
   // Clear / Export
-  document.getElementById("clearFilters")?.addEventListener("click", resetAllFacetsToAll);
-  document.getElementById("exportCsv")?.addEventListener("click", exportHistoryCsv);
+  const _cf = document.getElementById('clearFilters');
+  if (_cf) _cf.addEventListener('click', resetAllFacetsToAll);
+  const _ex = document.getElementById('exportCsv');
+  if (_ex) _ex.addEventListener('click', exportHistoryCsv);
 
-  // Sidebar quick bits
-  renderDraftRivalry();
-  renderSidebarPostseason(DEFAULT_TEAM_FOR_RIVALRY);
-
-  // Draft CSV upload
-  const csv=document.getElementById("csvFile");
-  if(csv){
-    csv.addEventListener("change", function(e){
-      Papa.parse(e.target.files[0], {
-        header:true, skipEmptyLines:true,
-        complete: (results)=>{
-          players = results.data.filter(r=>r["PLAYER NAME"]);
-          assignIds(); renderTable(); renderRoster(); renderNeedsAndWarnings(); updateProgress();
-        }
-      });
-    });
+  // Auto-init: trigger History once after data loads
+  if (histTab) {
+    histTab.click();
+  } else {
+    const teamSel = document.getElementById('teamSelect');
+    if (teamSel && !teamSel.dataset.ready) {
+      buildHistoryControls();
+      teamSel.dataset.ready = '1';
+    }
+    renderHistory();
   }
 });
 
-/* ---------- Draft UI ---------- */
-function renderTable(){
-  const search=(document.getElementById("search")?.value||"").toLowerCase();
-  const pos=document.getElementById("positionFilter")?.value||"";
-  const avail=document.getElementById("availabilityFilter")?.value||"all";
-  let filtered=players.filter(p=>{
-    const name=(p["PLAYER NAME"]||"").toLowerCase(), team=(p.TEAM||"").toLowerCase();
-    let ok=name.includes(search)||team.includes(search);
-    if(pos==="FLEX") ok &= p.POS&&(p.POS.startsWith("RB")||p.POS.startsWith("WR")||p.POS.startsWith("TE"));
-    else if(pos!=="") ok &= (p.POS||"").toUpperCase().startsWith(pos);
-    if(avail==="available"&&p._drafted) return false;
-    if(avail==="drafted"&&!p._drafted) return false;
-    return ok;
-  });
-  if(sortCol) filtered.sort((a,b)=>{
-    let va=a[sortCol], vb=b[sortCol]; if(!isNaN(+va)&&!isNaN(+vb)){va=+va;vb=+vb;}
-    return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0;
-  });
-  filtered.sort((a,b)=>(a._drafted===b._drafted)?0:(a._drafted?1:-1));
-  const tbody=document.querySelector("#playersTable tbody"); if(!tbody) return;
-  tbody.innerHTML="";
-  filtered.forEach(p=>{
-    const posClass=(p.POS||"").replace(/[0-9]/g,"");
-    const valueBadge=isValuePick(p)?`<span class="badge fire">🔥 value</span>`:"";
-    const tr=document.createElement("tr"); if(p._drafted) tr.classList.add("drafted");
-    tr.innerHTML=`<td>${p.RK??""}</td>
-      <td>${p["PLAYER NAME"]??""} ${valueBadge}</td>
-      <td class="${posClass}">${p.POS??""}</td>
-      <td>${p.TEAM??""}</td>
-      <td>${p.BYE??""}</td>
-      <td>${!p._drafted?`<button class="btn primary" onclick="draftPlayer('${p._id}')">Draft</button>
-                        <button class="btn" onclick="otherDrafted('${p._id}')">Other Team</button>`
-                      :`<button class="btn danger" onclick="undraft('${p._id}')">Undo</button>`}
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-function renderRoster(){
-  const div=document.getElementById("rosterSlots"); if(!div)return; div.innerHTML="";
-  rosterConfig.forEach(rc=>{
-    for(let i=0;i<rc.limit;i++){
-      const player=roster[rc.slot][i];
-      const posClass=player?(player.POS||"").replace(/[0-9]/g,""):"";
-      const row=document.createElement("div"); row.className="slot";
-      row.innerHTML=`<div><strong>${rc.slot}</strong>: ${
-        player?`<span class="${posClass}">${player["PLAYER NAME"]} (${player.POS})</span>`:`<span class="empty">empty</span>`}</div>
-        <div>${player?`<button class="btn danger" onclick="removeFromRoster('${rc.slot}',${i})">Remove</button>`:""}</div>`;
-      div.appendChild(row);
-    }
-  });
-  renderNeedsAndWarnings(); updateProgress();
-}
-function renderNeedsAndWarnings(){
-  const nb=document.getElementById("needsBar"); if(!nb)return; nb.innerHTML="";
-  rosterConfig.forEach(rc=>{
-    const need=openSlots(rc.slot);
-    const pill=document.createElement("div"); pill.className="need"+(need<=0?" ok":"");
-    pill.textContent=`${rc.slot}: ${Math.max(0,need)}`; nb.appendChild(pill);
-  });
-  const bw=document.getElementById("byeWarnings"); if(bw) bw.innerHTML="";
-}
-function updateProgress(){
-  const pct=Math.min(100,Math.round(computeStartersFilled()/startersTotal*100));
-  document.getElementById("progressFill")?.style.setProperty("width", pct+"%");
-}
-function draftPlayer(id){
-  const p=byId(id); if(!p) return; p._drafted=true;
-  let placed=false;
-  for(const rc of rosterConfig){
-    if(rc.flex) continue;
-    if(p.POS && p.POS.startsWith(rc.slot) && roster[rc.slot].length<rc.limit){ roster[rc.slot].push(p); placed=true; break; }
-  }
-  if(!placed && p.POS && ["RB","WR","TE"].some(s=>p.POS.startsWith(s)) && roster["FLEX"].length<1){ roster["FLEX"].push(p); placed=true; }
-  if(!placed && roster["BENCH"].length<7){ roster["BENCH"].push(p); }
-  cheer(); renderTable(); renderRoster();
-}
-function otherDrafted(id){ const p=byId(id); if(p){p._drafted=true; renderTable();} }
-function undraft(id){
-  const p=byId(id); if(!p)return; p._drafted=false;
-  for(const slot in roster){roster[slot]=roster[slot].filter(x=>x._id!==id);} renderTable(); renderRoster();
-}
-function removeFromRoster(slot,i){
-  const p=roster[slot][i]; if(p) p._drafted=false; roster[slot].splice(i,1); renderRoster(); renderTable();
-}
 
-/* ---------- Draft Sidebar: Rivalry + Postseason chips ---------- */
-function renderDraftRivalry(){
+  /* ---------- Rivalry UI ---------- */
+
+/* ---------- Rivalry Sidebar: Rivalry + Postseason chips ---------- */
+function renderRivalrySidebar(){
   if(!leagueGames.length) return;
   const me=DEFAULT_TEAM_FOR_RIVALRY, vs={};
   for(const g of leagueGames){
@@ -352,8 +244,17 @@ function renderDraftRivalry(){
     <thead><tr><th>Opponent</th><th>W-L-T</th><th>Win %</th><th>PF / PA</th></tr></thead>
     <tbody>${top.map(r=>`<tr><td>${r.opp}</td><td>${r.w}-${r.l}-${r.t}</td><td>${fmtPct(r.w,r.l,r.t)}</td><td>${r.pf.toFixed(1)} / ${r.pa.toFixed(1)}</td></tr>`).join("")}</tbody>
   </table>`;
-  document.getElementById("rivalry").innerHTML=html;
-  const best=rows[0]; if(best) document.getElementById("trashTalk").textContent=`Most-owned: ${best.opp} (${best.w}-${best.l}-${best.t}).`;
+  const _riv = document.getElementById("rivalry");
+  if (!_riv) return;
+  _riv.innerHTML = html;
+  
+  if (rows.length) {
+    const _tt = document.getElementById("trashTalk");
+    if (_tt) {
+      _tt.textContent = `Most-owned: ${rows[0].opp} (${rows[0].w}-${rows[0].l}-${rows[0].t}).`;
+    }
+  }
+  
 }
 function renderSidebarPostseason(team){
   const wrap=document.getElementById('postKpis'); if(!wrap) return;
@@ -763,7 +664,6 @@ function luckSummary(team, games){
   return { exp, act, luck: act - exp };
 }
 
-
 function renderFunFacts(team, games){
   const box = document.getElementById('funFacts');
   const lists = document.getElementById('funLists');
@@ -888,9 +788,7 @@ function renderFunFacts(team, games){
   `;
 }
 
-
 /* ---- Opponent/Team Breakdown (+ rivalry callouts) ---- */
-
 
 function renderOppBreakdown(team, games){
   const titleEl=document.getElementById('oppTableTitle');
@@ -1078,7 +976,6 @@ function renderOppBreakdown(team, games){
   }
 }
 
-
 function aggregateVsOpps(team, games, members){
   let w=0,l=0,t=0,pf=0,pa=0,n=0;
   const memLower = members.map(m=>m.toLowerCase());
@@ -1134,7 +1031,6 @@ function renderSeasonRecap(team){
     </tr>
   `).join("");
 }
-
 
 /* ---- Week-by-Week (newest → oldest) with crowns/turds + XW ---- */
 function renderWeekByWeek(team, games){
