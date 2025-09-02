@@ -176,6 +176,16 @@ function renderHeaderBannersForOwner(owner){
   el.innerHTML = chips.join("");
 }
 
+// Update header (team name + accomplishment chips)
+function updateHeaderForTeam(team){
+  try {
+    const h2 = document.querySelector('header h2');
+    if (h2) h2.textContent = team;
+    renderHeaderBannersForOwner(team);
+    document.title = team + ' — League History';
+  } catch (_) {}
+}
+
 /* ---------- Init ---------- */
 window.addEventListener('DOMContentLoaded', async ()=>{
   await loadLeagueJSON();
@@ -300,8 +310,11 @@ function buildHistoryControls(){
   const defaultTeam = teams.find(t=>t.value==="Joe") ? "Joe" : teams[0].value;
   teamSelect.value = defaultTeam;
   selectedTeam = teamSelect.value;
+  updateHeaderForTeam(selectedTeam);
   teamSelect.addEventListener('change', ()=>{
     selectedTeam = teamSelect.value;
+    updateHeaderForTeam(selectedTeam);
+  updateHeaderForTeam(selectedTeam);
     buildFacet('oppFilters', opponentOptions(selectedTeam), {prefix:'opp'});
     readFacetSelections(); updateFacetCountTexts(); renderHistory();
   });
@@ -695,7 +708,7 @@ function renderFunFacts(team, games){
   for(const g of orderedAsc){
     const s = sidesForTeam(g, team); if(!s) continue;
 
-    if(!hi || s.pf > hi.pf) hi = { pf:s.pf, pa:s.pa, date:g.date, opp:s.opp };
+    if(!isTwoWeek2014(g) && (!hi || s.pf > hi.pf)) hi = { pf:s.pf, pa:s.pa, date:g.date, opp:s.opp };
 
     if(s.result==='W'){
       const margin = s.pf - s.pa;
