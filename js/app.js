@@ -1122,9 +1122,9 @@ function renderFunListsAllTeams(){
   const seasonBadgeSpan = (team, season)=>{
     const f = window.__seasonBadgeMap.get(`${team}|${season}`);
     if (!f) return '';
-    return `${f.champ?' <span class="badge champ" title="Championship">🏆</span>':''}${f.saunders?' <span class="badge saunders" title="Saunders">🥄</span>':''}`;
+    return `${f.champ?' <span class="badge champ" title="Championship">🏆</span>':''}${f.saunders?' <span class="badge saunders" title="Saunders">💩</span>':''}`;
   };
-  const gameTag = (g)=>{ try{ if (!g) return ''; if (isSaundersGame(g)) return ' • Saunders'; if (isPlayoffGame(g)) return ' • PO'; }catch(_){} return ''; };
+  const gameTag = (g)=>{ try{ if (!g) return ''; if (isSaundersGame(g)) return ' • Saunders'; }catch(_){} return ''; };
 
   const el = document.getElementById('funLists');
   if (!el) return;
@@ -1176,7 +1176,10 @@ function renderFunListsAllTeams(){
     combinedGames.push({ teamA:g.teamA, teamB:g.teamB, total, scoreA:+g.scoreA, scoreB:+g.scoreB, date:g.date });
   }
   const topCombined = combinedGames.sort((a,b)=> b.total - a.total || a.date.localeCompare(b.date)).slice(0,10);
-  const rowCombined = (r)=> `<tr><td>${s2(r.total)}</td><td>${s2(r.scoreA)}–${s2(r.scoreB)}</td><td>${r.teamA} vs ${r.teamB}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+  const rowCombined = (r)=> `<tr${poRowAttr(r)}><td>${s2(r.total)}</td><td>${s2(r.scoreA)}–${s2(r.scoreB)}</td><td>${r.teamA} vs ${r.teamB}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+
+  // Bold playoff rows (for mixed lists); Saunders gets text tag via gameTag
+  const poRowAttr = (r)=>{ try{ const g = r.g || r.game; if (g && typeof isPlayoffGame==='function' && isPlayoffGame(g)) return ' style="font-weight:600"'; }catch(_){ } return ''; };
 // Local helpers
   const n = (x,d=2)=> Number.isFinite(+x) ? (+x).toFixed(d) : "—";
   const isPlayoff = (g)=> {
@@ -1185,8 +1188,8 @@ function renderFunListsAllTeams(){
   };
 
   // Row renderers for existing tables
-  const rowHigh = (r) => `<tr><td>${s2(r.pf)}–${s2(r.pa)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
-  const rowLow  = (r) => `<tr><td>${s2(r.pf)}–${s2(r.pa)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+  const rowHigh = (r) => `<tr${poRowAttr(r)}><td>${s2(r.pf)}–${s2(r.pa)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+  const rowLow  = (r) => `<tr${poRowAttr(r)}><td>${s2(r.pf)}–${s2(r.pa)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
   const rowStk  = (r) => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`;
 
     // Unluckiest/Luckiest Games (Regular season only)
@@ -1210,8 +1213,8 @@ function renderFunListsAllTeams(){
   const topLuckyGames   = fewestPtsInWin
     .sort((a,b)=> a.wScore - b.wScore || a.date.localeCompare(b.date))
     .slice(0,10);
-  const rowLuckGameLoss = (r)=> `<tr><td>${s2(r.wScore)}–${s2(r.lScore)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
-  const rowLuckGameWin  = (r)=> `<tr><td>${s2(r.wScore)}–${s2(r.lScore)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+  const rowLuckGameLoss = (r)=> `<tr${poRowAttr(r)}><td>${s2(r.wScore)}–${s2(r.lScore)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
+  const rowLuckGameWin  = (r)=> `<tr${poRowAttr(r)}><td>${s2(r.wScore)}–${s2(r.lScore)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}${gameTag(r.g||r.game)}</td></tr>`;
 // --- Highest Scoring Regular Seasons (PPG) ---
   const mostPPG = [...seasons].sort((a,b)=> b.ppg - a.ppg || b.season - a.season).slice(0,10);
   const rowPPG = (r) => `<tr><td>${r.team}</td><td>${r.season}${seasonBadgeSpan(r.team, r.season)}</td><td>${n(r.ppg,2)}</td><td>${r.n}</td></tr>`;
