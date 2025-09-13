@@ -902,6 +902,37 @@ function longestWinStreaksGlobal(n=10){
     .sort((a,b)=> b.len - a.len || new Date(b.end) - new Date(a.end) || a.team.localeCompare(b.team))
     .slice(0, n);
 }
+function longestLosingStreaksGlobal(n=10){
+  const runs = [];
+  for (const team of teamsFromLeagueGames()){
+    const tg = leagueGames
+      .map(g => ({ g, s: sidesForTeam(g, team) }))
+      .filter(x => x.s)
+      .sort((a,b)=> new Date(a.g.date) - new Date(b.g.date));
+
+    let cur = 0, start = null;
+    for (let i=0; i<tg.length; i++){
+      const {g, s} = tg[i];
+      if (s.result === 'L'){
+        if (cur === 0) start = g.date;
+        cur++;
+      } else {
+        if (cur > 0){
+          const endDate = tg[i-1].g.date;
+          runs.push({ team, len: cur, start, end: endDate });
+          cur = 0; start = null;
+        }
+      }
+    }
+    if (cur > 0){
+      runs.push({ team, len: cur, start, end: tg[tg.length-1].g.date });
+    }
+  }
+  return runs
+    .sort((a,b)=> b.len - a.len || new Date(b.end) - new Date(a.end) || a.team.localeCompare(b.team))
+    .slice(0, n);
+}
+
 
 
 
@@ -1164,6 +1195,7 @@ function renderFunListsAllTeams(){
   const highs   = topNWeeklyScoresAllTeams(10);
   const lows    = bottomNWeeklyScoresAllTeams(10);
   const streaks = longestWinStreaksGlobal(10);
+  const streaksLoss = (typeof longestLosingStreaksGlobal==='function' ? longestLosingStreaksGlobal(10) : []);
   const seasons = seasonAggregatesAllTeams();
   // Luckiest/Unluckiest Seasons (min games = 8)
   const luckPool = seasons.filter(r => r.n >= 8 && Number.isFinite(+r.luck));
@@ -1397,6 +1429,16 @@ function renderFunListsAllTeams(){
         </table>
       </div>
     </div>
+    <div class="mini">
+      <div class="mini-title">Longest Losing Streaks</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Length</th><th>Team</th><th>Range</th></tr></thead>
+          <tbody>${streaksLoss.map(r => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
 
 
     <div class="mini">
