@@ -669,6 +669,74 @@ function teamsFromLeagueGames(){
 }
 
 // Longest winning streaks across the league (no ties/losses included)
+
+
+
+/* ---------- League-wide season aggregates (regular season only) ---------- */
+function seasonAggregatesAllTeams(){
+  // Map key: `${team}|${season}`
+  const map = new Map();
+
+  // initialize from seasonSummaries to ensure seasons/owners present even if no games matched filters
+  if (Array.isArray(seasonSummaries)) {
+    for (const r of seasonSummaries) {
+      const key = `${r.owner}|${r.season}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          team: r.owner,
+          season: +r.season,
+          w: 0, l: 0, t: 0, n: 0,
+          pf: 0, pa: 0,
+          actWins: 0, expWins: 0
+        });
+      }
+    }
+  }
+
+  for (const g of leagueGames) {
+    if (!isRegularGame(g)) continue; // regular season only
+    const season = +g.season;
+    // team A side
+    {
+      const key = `${g.teamA}|${season}`;
+      if (!map.has(key)) map.set(key, { team:g.teamA, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+      const r = map.get(key);
+      r.n += 1;
+      r.pf += g.scoreA; r.pa += g.scoreB;
+      if (g.scoreA > g.scoreB) { r.w += 1; r.actWins += 1; }
+      else if (g.scoreA < g.scoreB) { r.l += 1; }
+      else { r.t += 1; r.actWins += 0.5; }
+      const xw = expectedWinForGame(g.teamA, g);
+      if (xw !== null) r.expWins += xw;
+    }
+    // team B side
+    {
+      const key = `${g.teamB}|${season}`;
+      if (!map.has(key)) map.set(key, { team:g.teamB, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+      const r = map.get(key);
+      r.n += 1;
+      r.pf += g.scoreB; r.pa += g.scoreA;
+      if (g.scoreB > g.scoreA) { r.w += 1; r.actWins += 1; }
+      else if (g.scoreB < g.scoreA) { r.l += 1; }
+      else { r.t += 1; r.actWins += 0.5; }
+      const xw = expectedWinForGame(g.teamB, g);
+      if (xw !== null) r.expWins += xw;
+    }
+  }
+
+  // finalize computed fields
+  const out = [];
+  for (const r of map.values()) {
+    const pct = (r.w + 0.5*r.t) / Math.max(1, (r.w + r.l + r.t));
+    const ppg = r.n ? (r.pf / r.n) : 0;
+    const oppg = r.n ? (r.pa / r.n) : 0;
+    const luck = r.actWins - r.expWins;
+    out.push({ ...r, pct, ppg, oppg, luck });
+  }
+  return out;
+}
+
+
 function longestWinStreaksAllTeams(n=5){
   const results = [];
   for (const team of teamsFromLeagueGames()) {
@@ -772,27 +840,65 @@ function renderFunFactsAllTeams(){
 
 
 
+
 function renderFunListsAllTeams(){
   const el = document.getElementById('funLists');
   if (!el) return;
 
-  const highs   = topNWeeklyScoresAllTeams(5);
-  const lows    = bottomNWeeklyScoresAllTeams(5);
-  const streaks = longestWinStreaksAllTeams(5);
+  // Expand to top 10
+  const highs   = topNWeeklyScoresAllTeams(10);
+  const lows    = bottomNWeeklyScoresAllTeams(10);
+  const streaks = longestWinStreaksAllTeams(10);
 
-  const rowHigh = (r) => `
-    <tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>
-  `;
-  const rowLow  = (r) => `
-    <tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>
-  `;
-  const rowStk  = (r) => `
-    <tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>
-  `;
+  // Season aggregates (regular season only)
+  const seasons = seasonAggregatesAllTeams();
+
+  // Best / Worst regular seasons by record (pct, then wins desc, then season desc)
+  const byRecordDesc = [...seasons].sort((a,b)=> b.pct - a.pct || b.w - a.w || b.season - a.season);
+  const byRecordAsc  = [...seasons].sort((a,b)=> a.pct - b.pct || a.w - b.w || a.season - b.season);
+  const bestReg  = byRecordDesc.slice(0, 10);
+  const worstReg = byRecordAsc.slice(0, 10);
+
+  // Highest / Lowest PPG (regular season only)
+  const byPPGDesc = [...seasons].sort((a,b)=> b.ppg - a.ppg || b.season - a.season);
+  const byPPGAsc  = [...seasons].sort((a,b)=> a.ppg - b.ppg || a.season - b.season);
+  const highPPG = byPPGDesc.slice(0, 10);
+  const lowPPG  = byPPGAsc.slice(0, 10);
+
+  // Luckiest / Unluckiest (Actual - Expected wins)
+  const byLuckDesc = [...seasons].sort((a,b)=> b.luck - a.luck || b.season - a.season);
+  const byLuckAsc  = [...seasons].sort((a,b)=> a.luck - b.luck || a.season - b.season);
+  const luckiest   = byLuckDesc.slice(0, 5);
+  const unluckiest = byLuckAsc.slice(0, 5);
+
+  const rowHigh = (r) => `<tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowLow  = (r) => `<tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowStk  = (r) => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`;
+
+  const rowSeason = (r) => `<tr>
+      <td>${r.team}</td>
+      <td>${r.season}</td>
+      <td>${r.w}-${r.l}-${r.t}</td>
+      <td>${(r.pct*100).toFixed(1)}%</td>
+    </tr>`;
+
+  const rowPPG = (r) => `<tr>
+      <td>${r.team}</td>
+      <td>${r.season}</td>
+      <td>${r.ppg.toFixed(2)}</td>
+      <td>${r.n}</td>
+    </tr>`;
+
+  const rowLuck = (r) => `<tr>
+      <td>${r.team}</td>
+      <td>${r.season}</td>
+      <td>${r.luck>0?'+':''}${r.luck.toFixed(2)}</td>
+      <td>Act ${r.actWins.toFixed(2)} / Exp ${r.expWins.toFixed(2)}</td>
+    </tr>`;
 
   el.innerHTML = `
     <div class="mini">
-      <div class="mini-title">Top 5 Highest Scoring Games</div>
+      <div class="mini-title">Top 10 Highest Scoring Games</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
@@ -801,7 +907,7 @@ function renderFunListsAllTeams(){
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Bottom 5 Lowest Scoring Games</div>
+      <div class="mini-title">Bottom 10 Lowest Scoring Games</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
@@ -810,7 +916,7 @@ function renderFunListsAllTeams(){
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Longest Winning Streaks</div>
+      <div class="mini-title">Longest Winning Streaks (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Length</th><th>Team</th><th>Range</th></tr></thead>
@@ -818,9 +924,65 @@ function renderFunListsAllTeams(){
         </table>
       </div>
     </div>
+
+    <div class="mini">
+      <div class="mini-title">Best Regular Seasons (by record)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Record</th><th>Win %</th></tr></thead>
+          <tbody>${bestReg.map(rowSeason).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Worst Regular Seasons (by record)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Record</th><th>Win %</th></tr></thead>
+          <tbody>${worstReg.map(rowSeason).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-title">Highest Scoring Regular Seasons (PPG)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>PPG</th><th>G</th></tr></thead>
+          <tbody>${highPPG.map(rowPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Lowest Scoring Regular Seasons (PPG)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>PPG</th><th>G</th></tr></thead>
+          <tbody>${lowPPG.map(rowPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-title">Luckiest 5 Seasons</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Luck (Act − Exp)</th><th>Details</th></tr></thead>
+          <tbody>${luckiest.map(rowLuck).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Unluckiest 5 Seasons</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Luck (Act − Exp)</th><th>Details</th></tr></thead>
+          <tbody>${unluckiest.map(rowLuck).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
   `;
 }
-
 
 function renderFunFacts(team, games){
   if (team === ALL_TEAMS) { renderFunFactsAllTeams(); renderFunListsAllTeams(); return; }
