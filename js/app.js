@@ -921,6 +921,136 @@ function luckSummary(team, games){
 
 
 
+
+/* ---------- League Summary Tables (All Teams) ---------- */
+function renderLeagueSummaryTablesAllTeams(){
+  const funLists = document.getElementById('funLists');
+  const facts = document.getElementById('funFacts');
+  if (!funLists || !facts) return;
+
+  // Ensure container exists and sits between funFacts and funLists
+  let box = document.getElementById('leagueSummary');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'leagueSummary';
+    box.className = 'fun-lists';
+    facts.parentNode.insertBefore(box, funLists);
+  }
+
+  // Regular season aggregates per TEAM (across all seasons)
+  const seasons = seasonAggregatesAllTeams();
+  const regByTeam = new Map();
+  for (const r of seasons){
+    const t = r.team;
+    const cur = regByTeam.get(t) || { team:t, w:0,l:0,t:0,n:0,pf:0,pa:0 };
+    cur.w += r.w; cur.l += r.l; cur.t += r.t;
+    cur.n += r.n; cur.pf += r.pf; cur.pa += r.pa;
+    regByTeam.set(t, cur);
+  }
+  const regRows = Array.from(regByTeam.values()).map(r=>{
+    const games = (r.w + r.l + r.t);
+    const winPct = games ? (r.w + 0.5*r.t) / games : 0;
+    const ppg = r.n ? (r.pf / r.n) : 0;
+    const oppg = r.n ? (r.pa / r.n) : 0;
+    return { team:r.team, rec:`${r.w}-${r.l}${r.t?'-'+r.t:''}`, pct: winPct, ppg, oppg };
+  }).sort((a,b)=> b.pct - a.pct || b.ppg - a.ppg || a.team.localeCompare(b.team));
+
+  // Postseason aggregates (Darling=main playoffs, Saunders=saunders tourney)
+  const ss = Array.isArray(seasonSummaries) ? seasonSummaries : [];
+  const postByTeam = new Map();
+  for (const r of ss){
+    const t = r.owner;
+    const cur = postByTeam.get(t) || {
+      team:t, dW:0,dL:0, byes:0, champs:0, dPF:0,dPA:0,dN:0,
+      sW:0,sL:0, saundersTitles:0, sPF:0,sPA:0,sN:0
+    };
+    cur.dW += (r.playoff_wins||0); cur.dL += (r.playoff_losses||0);
+    cur.byes += (r.bye?1:0);
+    cur.champs += (r.champion?1:0);
+    cur.sW += (r.saunders_wins||0); cur.sL += (r.saunders_losses||0);
+    cur.saundersTitles += (r.saunders?1:0);
+    postByTeam.set(t, cur);
+  }
+  // PPG from game log
+  for (const g of leagueGames){
+    const t = (g.type||'').toLowerCase();
+    const mainPO = t && t!=='regular' && !t.includes('saunders');
+    const saunders = t && t.includes('saunders');
+    if (!mainPO && !saunders) continue;
+    // A
+    {
+      const rec = postByTeam.get(g.teamA) || { team:g.teamA, dW:0,dL:0, byes:0, champs:0, dPF:0,dPA:0,dN:0, sW:0,sL:0, saundersTitles:0, sPF:0,sPA:0,sN:0 };
+      if (mainPO){ rec.dPF += +g.scoreA; rec.dPA += +g.scoreB; rec.dN += 1; }
+      else { rec.sPF += +g.scoreA; rec.sPA += +g.scoreB; rec.sN += 1; }
+      postByTeam.set(g.teamA, rec);
+    }
+    // B
+    {
+      const rec = postByTeam.get(g.teamB) || { team:g.teamB, dW:0,dL:0, byes:0, champs:0, dPF:0,dPA:0,dN:0, sW:0,sL:0, saundersTitles:0, sPF:0,sPA:0,sN:0 };
+      if (mainPO){ rec.dPF += +g.scoreB; rec.dPA += +g.scoreA; rec.dN += 1; }
+      else { rec.sPF += +g.scoreB; rec.sPA += +g.scoreA; rec.sN += 1; }
+      postByTeam.set(g.teamB, rec);
+    }
+  }
+  const postRows = Array.from(postByTeam.values()).map(r=>{
+    const dPPG = r.dN ? (r.dPF/r.dN) : 0;
+    const dOPPG = r.dN ? (r.dPA/r.dN) : 0;
+    const sPPG = r.sN ? (r.sPF/r.sN) : 0;
+    const sOPPG = r.sN ? (r.sPA/r.sN) : 0;
+    return {
+      team:r.team,
+      darlingRec: `${r.dW}-${r.dL}`,
+      byes: r.byes,
+      champs: r.champs,
+      dPPG, dOPPG,
+      saundersRec: `${r.sW}-${r.sL}`,
+      saundersTitles: r.saundersTitles,
+      sPPG, sOPPG
+    };
+  }).sort((a,b)=> b.champs - a.champs || b.dPPG - a.dPPG || a.team.localeCompare(b.team));
+
+  const n = (x,d=2)=> Number.isFinite(+x) ? (+x).toFixed(d) : "—";
+
+  const regTable = `
+    <div class="mini">
+      <div class="mini-title">Regular Season (All-Time)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Record</th><th>Win%</th><th>PPG</th><th>OPPG</th></tr></thead>
+          <tbody>${
+            regRows.map(r => `<tr><td>${r.team}</td><td>${r.rec}</td><td>${n(r.pct*100,1)}%</td><td>${n(r.ppg,2)}</td><td>${n(r.oppg,2)}</td></tr>`).join("")
+            || '<tr><td colspan="5" class="muted">—</td></tr>'
+          }</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  const postTable = `
+    <div class="mini">
+      <div class="mini-title">Post Season (All-Time)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th><th>Darling Record</th><th>Byes</th><th>Championships</th>
+              <th>Darling PPG</th><th>Darling Opp PPG</th>
+              <th>Saunders Record</th><th>Saunders</th><th>Saunders PPG</th><th>Saunders Opp PPG</th>
+            </tr>
+          </thead>
+          <tbody>${
+            postRows.map(r => `<tr>
+              <td>${r.team}</td><td>${r.darlingRec}</td><td>${r.byes}</td><td>${r.champs}</td>
+              <td>${n(r.dPPG,2)}</td><td>${n(r.dOPPG,2)}</td>
+              <td>${r.saundersRec}</td><td>${r.saundersTitles}</td>
+              <td>${n(r.sPPG,2)}</td><td>${n(r.sOPPG,2)}</td>
+            </tr>`).join("") || '<tr><td colspan="10" class="muted">—</td></tr>'
+          }</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  box.innerHTML = regTable + postTable;
+}
 function renderFunFactsAllTeams(){
   const el = document.getElementById('funFacts');
   if (!el) return;
@@ -1215,7 +1345,7 @@ function renderFunListsAllTeams(){
   `;
 }
 function renderFunFacts(team, games){
-  if (team === ALL_TEAMS) { renderFunFactsAllTeams(); renderFunListsAllTeams(); return; }
+  if (team === ALL_TEAMS) { renderFunFactsAllTeams(); renderLeagueSummaryTablesAllTeams(); renderFunListsAllTeams(); return; }
   const box = document.getElementById('funFacts');
   const lists = document.getElementById('funLists');
   if(!box || !lists) return;
