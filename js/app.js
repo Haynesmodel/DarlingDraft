@@ -41,6 +41,162 @@ const champNote    = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.champs?.[sea
 const saundersNote = (owner, season) => SPECIAL_TITLE_NOTES[owner]?.saunders?.[season] || null;
 
 /* ---------- Utils ---------- */
+
+// Safe number formatter: returns "—" if not finite
+function nfmt(x, d=2){
+  return Number.isFinite(+x) ? (+x).toFixed(d) : "—";
+}
+
+/* ---------- League-wide computed helpers (added) ---------- */
+
+// Longest losing streaks across all teams
+function longestLosingStreaksAllTeams(n=10){
+  const results = [];
+  for (const team of teamsFromLeagueGames()) {
+    const tg = leagueGames
+      .map(g => ({ g, s: sidesForTeam(g, team) }))
+      .filter(x => x.s)
+      .sort((a,b)=> new Date(a.g.date) - new Date(b.g.date));
+
+    let cur=0, best=0, start=null, bestStart=null, bestEnd=null;
+    for (const {g,s} of tg) {
+      if (s.result === 'L') {
+        if (cur === 0) start = g.date;
+        cur++;
+        if (cur > best) { best = cur; bestStart = start; bestEnd = g.date; }
+      } else {
+        // ties & wins break the losing streak
+        cur = 0; start = null;
+      }
+    }
+    if (best > 0) results.push({ team, len: best, start: bestStart, end: bestEnd });
+  }
+  return results
+    .sort((a,b)=> b.len - a.len || a.team.localeCompare(b.team))
+    .slice(0, n);
+}
+
+// Season aggregates (regular season only) - reused
+if (typeof seasonAggregatesAllTeams !== 'function') {
+  function seasonAggregatesAllTeams(){
+    const map = new Map();
+    if (Array.isArray(seasonSummaries)) {
+      for (const r of seasonSummaries) {
+        const key = `${r.owner}|${r.season}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            team: r.owner, season: +r.season,
+            w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0
+          });
+        }
+      }
+    }
+    for (const g of leagueGames) {
+      if (!isRegularGame(g)) continue;
+      const season = +g.season;
+      { // A
+        const key = `${g.teamA}|${season}`;
+        if (!map.has(key)) map.set(key, { team:g.teamA, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+        const r = map.get(key);
+        r.n += 1; r.pf += g.scoreA; r.pa += g.scoreB;
+        if (g.scoreA > g.scoreB) { r.w += 1; r.actWins += 1; }
+        else if (g.scoreA < g.scoreB) { r.l += 1; }
+        else { r.t += 1; r.actWins += 0.5; }
+        const xw = expectedWinForGame(g.teamA, g); if (xw!==null) r.expWins += xw;
+      }
+      { // B
+        const key = `${g.teamB}|${season}`;
+        if (!map.has(key)) map.set(key, { team:g.teamB, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+        const r = map.get(key);
+        r.n += 1; r.pf += g.scoreB; r.pa += g.scoreA;
+        if (g.scoreB > g.scoreA) { r.w += 1; r.actWins += 1; }
+        else if (g.scoreB < g.scoreA) { r.l += 1; }
+        else { r.t += 1; r.actWins += 0.5; }
+        const xw = expectedWinForGame(g.teamB, g); if (xw!==null) r.expWins += xw;
+      }
+    }
+    const out = [];
+    for (const r of map.values()) {
+      const pct = (r.w + 0.5*r.t) / Math.max(1, (r.w + r.l + r.t));
+      const ppg = r.n ? (r.pf / r.n) : 0;
+      const oppg = r.n ? (r.pa / r.n) : 0;
+      const luck = r.actWins - r.expWins;
+      const diff = r.pf - r.pa;
+      out.push({ ...r, pct, ppg, oppg, luck, diff });
+    }
+    return out;
+  }
+}
+
+// Build head-to-head records per pair
+function headToHeadPairs(minGames=5){
+  // key: team|opp
+  const map = new Map();
+  for (const g of leagueGames) {
+    const keyA = `${g.teamA}|${g.teamB}`;
+    const keyB = `${g.teamB}|${g.teamA}`;
+    if (!map.has(keyA)) map.set(keyA, { team:g.teamA, opp:g.teamB, w:0,l:0,t:0,g:0 });
+    if (!map.has(keyB)) map.set(keyB, { team:g.teamB, opp:g.teamA, w:0,l:0,t:0,g:0 });
+    // A side
+    const a = map.get(keyA); a.g += 1;
+    if (g.scoreA > g.scoreB) a.w += 1;
+    else if (g.scoreA < g.scoreB) a.l += 1;
+    else a.t += 1;
+    // B side
+    const b = map.get(keyB); b.g += 1;
+    if (g.scoreB > g.scoreA) b.w += 1;
+    else if (g.scoreB < g.scoreA) b.l += 1;
+    else b.t += 1;
+  }
+  const rows = [];
+  for (const r of map.values()) {
+    if (r.g >= minGames) {
+      const pct = (r.w + 0.5*r.t) / r.g;
+      rows.push({ ...r, pct });
+    }
+  }
+  return rows;
+}
+
+// Weekly awards: top and bottom scorer each regular-season date
+function weeklyAwards(){
+  const byDate = new Map();
+  for (const g of leagueGames) {
+    if (!isRegularGame(g)) continue;
+    const d = g.date;
+    if (!byDate.has(d)) byDate.set(d, []);
+    byDate.get(d).push({ team:g.teamA, score: g.scoreA });
+    byDate.get(d).push({ team:g.teamB, score: g.scoreB });
+  }
+  const topCount = new Map(), lowCount = new Map(), high150 = new Map();
+  for (const [d, arr] of byDate.entries()) {
+    if (!arr.length) continue;
+    arr.sort((a,b)=> b.score - a.score);
+    const top = arr[0];
+    const low = arr[arr.length-1];
+    topCount.set(top.team, (topCount.get(top.team)||0)+1);
+    lowCount.set(low.team, (lowCount.get(low.team)||0)+1);
+    for (const {team, score} of arr) {
+      if (score >= 150) high150.set(team, (high150.get(team)||0)+1);
+    }
+  }
+  const toRows = (m) => Array.from(m.entries()).map(([team, count])=>({team, count}));
+  return { top: toRows(topCount), low: toRows(lowCount), high150: toRows(high150) };
+}
+
+// Playoff wins per team (excluding Saunders)
+function playoffWinsPerTeam(){
+  const wins = new Map();
+  for (const g of leagueGames) {
+    const t = (g.type||'').toLowerCase();
+    if (!t || t==='regular') continue;
+    if (t.includes('saunders')) continue;
+    // award win
+    if (g.scoreA > g.scoreB) wins.set(g.teamA, (wins.get(g.teamA)||0)+1);
+    else if (g.scoreB > g.scoreA) wins.set(g.teamB, (wins.get(g.teamB)||0)+1);
+  }
+  return Array.from(wins.entries()).map(([team, wins])=>({team, wins}));
+}
 function assignIds(){ players.forEach((p,idx)=> p._id = (crypto.randomUUID?crypto.randomUUID():("id_"+Date.now()+"_"+idx))); }
 function cheer(){ try{ document.getElementById("cheer").play(); }catch(e){} }
 function trombone(){ try{ document.getElementById("trombone").play(); }catch(e){} }
@@ -809,13 +965,32 @@ function luckSummary(team, games){
 
 
 
+
+
 function renderFunFactsAllTeams(){
   const el = document.getElementById('funFacts');
   if (!el) return;
 
-  const top = topNWeeklyScoresAllTeams(1)[0];
-  const low = bottomNWeeklyScoresAllTeams(1)[0];
-  const stk = longestWinStreaksAllTeams(1)[0];
+  const seasons = seasonAggregatesAllTeams();
+  const minGames = 8;
+
+  const valid = seasons.filter(r => r.n >= minGames);
+  const bestRec = valid.slice().sort((a,b)=> b.pct - a.pct || b.w - a.w)[0] || null;
+  const worstRec = valid.slice().sort((a,b)=> a.pct - b.pct || a.w - b.w)[0] || null;
+
+  const bestDiff = seasons.slice().sort((a,b)=> (b.diff - a.diff) || b.season - a.season)[0] || null;
+  const worstDiff = seasons.slice().sort((a,b)=> (a.diff - b.diff) || a.season - b.season)[0] || null;
+
+  const winStk = (typeof longestWinStreaksAllTeams==='function' && longestWinStreaksAllTeams(1)[0]) || null;
+  const loseStk = (typeof longestLosingStreaksAllTeams==='function' && longestLosingStreaksAllTeams(1)[0]) || null;
+
+  const pairRows = headToHeadPairs(5).sort((a,b)=> b.pct - a.pct || b.g - a.g);
+  const bestVs = pairRows[0] || null;
+
+  const top = topNWeeklyScoresAllTeams(1)[0] || null;
+
+  const fmtRec = (r) => r ? `${r.w}-${r.l}${r.t?'-'+r.t:''}` : '—';
+  const nfmt = (x, d=2) => Number.isFinite(+x) ? (+x).toFixed(d) : "—";
 
   const tile = (label, val, sub="") => `
     <div class="stat">
@@ -826,75 +1001,68 @@ function renderFunFactsAllTeams(){
   `;
 
   el.innerHTML = [
-    tile("Highest Weekly Score",
-         top ? top.pf.toFixed(2) : "—",
-         top ? `${top.team} vs ${top.opp} (${top.date})` : ""),
-    tile("Lowest Weekly Score",
-         low ? low.pf.toFixed(2) : "—",
-         low ? `${low.team} vs ${low.opp} (${low.date})` : ""),
+    tile("Best Single-Season Record",
+         bestRec ? `${nfmt(bestRec.pct*100, 1)}%` : "—",
+         bestRec ? `${bestRec.team} • ${bestRec.season} • ${fmtRec(bestRec)}` : ""),
+    tile("Worst Single-Season Record",
+         worstRec ? `${nfmt(worstRec.pct*100, 1)}%` : "—",
+         worstRec ? `${worstRec.team} • ${worstRec.season} • ${fmtRec(worstRec)}` : ""),
+    tile("Best Season Point Diff",
+         bestDiff ? `${nfmt(bestDiff.diff, 0)}` : "—",
+         bestDiff ? `${bestDiff.team} • ${bestDiff.season} • PF ${nfmt(bestDiff.pf,0)} / PA ${nfmt(bestDiff.pa,0)}` : ""),
+    tile("Worst Season Point Diff",
+         worstDiff ? `${nfmt(worstDiff.diff, 0)}` : "—",
+         worstDiff ? `${worstDiff.team} • ${worstDiff.season} • PF ${nfmt(worstDiff.pf,0)} / PA ${nfmt(worstDiff.pa,0)}` : ""),
     tile("Longest Winning Streak",
-         stk ? stk.len : "—",
-         stk ? `${stk.team} (${stk.start} → ${stk.end})` : "")
+         winStk ? `${winStk.len}` : "—",
+         winStk ? `${winStk.team} (${winStk.start} → ${winStk.end})` : ""),
+    tile("Longest Losing Streak",
+         loseStk ? `${loseStk.len}` : "—",
+         loseStk ? `${loseStk.team} (${loseStk.start} → ${loseStk.end})` : ""),
+    tile("Best Record vs Single Opponent",
+         bestVs ? `${nfmt(bestVs.pct*100, 1)}%` : "—",
+         bestVs ? `${bestVs.team} vs ${bestVs.opp} • ${bestVs.w}-${bestVs.l}${bestVs.t?'-'+bestVs.t:''} (${bestVs.g} gms)` : ""),
+    tile("Highest Scoring Single Game",
+         top ? `${nfmt(top.pf, 2)}` : "—",
+         top ? `${top.team} vs ${top.opp} (${top.date})` : "")
   ].join("");
 }
-
-
 
 
 function renderFunListsAllTeams(){
   const el = document.getElementById('funLists');
   if (!el) return;
 
-  // Expand to top 10
+  // Existing expanded to 10
   const highs   = topNWeeklyScoresAllTeams(10);
   const lows    = bottomNWeeklyScoresAllTeams(10);
   const streaks = longestWinStreaksAllTeams(10);
 
-  // Season aggregates (regular season only)
   const seasons = seasonAggregatesAllTeams();
 
-  // Best / Worst regular seasons by record (pct, then wins desc, then season desc)
-  const byRecordDesc = [...seasons].sort((a,b)=> b.pct - a.pct || b.w - a.w || b.season - a.season);
-  const byRecordAsc  = [...seasons].sort((a,b)=> a.pct - b.pct || a.w - b.w || a.season - b.season);
-  const bestReg  = byRecordDesc.slice(0, 10);
-  const worstReg = byRecordAsc.slice(0, 10);
-
-  // Highest / Lowest PPG (regular season only)
-  const byPPGDesc = [...seasons].sort((a,b)=> b.ppg - a.ppg || b.season - a.season);
-  const byPPGAsc  = [...seasons].sort((a,b)=> a.ppg - b.ppg || a.season - b.season);
-  const highPPG = byPPGDesc.slice(0, 10);
-  const lowPPG  = byPPGAsc.slice(0, 10);
-
-  // Luckiest / Unluckiest (Actual - Expected wins)
-  const byLuckDesc = [...seasons].sort((a,b)=> b.luck - a.luck || b.season - a.season);
-  const byLuckAsc  = [...seasons].sort((a,b)=> a.luck - b.luck || a.season - b.season);
-  const luckiest   = byLuckDesc.slice(0, 5);
-  const unluckiest = byLuckAsc.slice(0, 5);
-
-  const rowHigh = (r) => `<tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
-  const rowLow  = (r) => `<tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowHigh = (r) => `<tr><td>${nfmt(r?.pf, 2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowLow  = (r) => `<tr><td>${nfmt(r?.pf, 2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
   const rowStk  = (r) => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`;
 
-  const rowSeason = (r) => `<tr>
-      <td>${r.team}</td>
-      <td>${r.season}</td>
-      <td>${r.w}-${r.l}-${r.t}</td>
-      <td>${(r.pct*100).toFixed(1)}%</td>
-    </tr>`;
+  // PA season lists
+  const byPA_Desc = [...seasons].sort((a,b)=> b.pa - a.pa || b.season - a.season).slice(0,10);
+  const byPA_Asc  = [...seasons].sort((a,b)=> a.pa - b.pa || a.season - b.season).slice(0,10);
+  const rowPA = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${nfmt(r?.pa, 0)}</td><td>${r.n}</td></tr>`;
 
-  const rowPPG = (r) => `<tr>
-      <td>${r.team}</td>
-      <td>${r.season}</td>
-      <td>${r.ppg.toFixed(2)}</td>
-      <td>${r.n}</td>
-    </tr>`;
+  // Playoff wins (Top 5)
+  const playoffs = playoffWinsPerTeam().sort((a,b)=> b.wins - a.wins || a.team.localeCompare(b.team)).slice(0,5);
+  const rowPO = (r) => `<tr><td>${r.team}</td><td>${r.wins}</td></tr>`;
 
-  const rowLuck = (r) => `<tr>
-      <td>${r.team}</td>
-      <td>${r.season}</td>
-      <td>${r.luck>0?'+':''}${r.luck.toFixed(2)}</td>
-      <td>Act ${r.actWins.toFixed(2)} / Exp ${r.expWins.toFixed(2)}</td>
-    </tr>`;
+  // Head-to-Head Win % Leaders (Top 10) among pairs (min 5 games)
+  const pairs = headToHeadPairs(5).sort((a,b)=> b.pct - a.pct || b.g - a.g).slice(0,10);
+  const rowPair = (r) => `<tr><td>${r.team}</td><td>${r.opp}</td><td>${(r.pct*100).toFixed(1)}%</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''} (${r.g})</td></tr>`;
+
+  // Weekly awards
+  const wa = weeklyAwards();
+  const topW = wa.top.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+  const lowW = wa.low.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+  const high150 = wa.high150.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+  const rowCount = (r) => `<tr><td>${r.team}</td><td>${r.count}</td></tr>`;
 
   el.innerHTML = `
     <div class="mini">
@@ -926,64 +1094,73 @@ function renderFunListsAllTeams(){
     </div>
 
     <div class="mini">
-      <div class="mini-title">Best Regular Seasons (by record)</div>
+      <div class="mini-title">Most Points Allowed in a Season (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>Record</th><th>Win %</th></tr></thead>
-          <tbody>${bestReg.map(rowSeason).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Season</th><th>PA</th><th>G</th></tr></thead>
+          <tbody>${byPA_Desc.map(rowPA).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Worst Regular Seasons (by record)</div>
+      <div class="mini-title">Fewest Points Allowed in a Season (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>Record</th><th>Win %</th></tr></thead>
-          <tbody>${worstReg.map(rowSeason).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="mini-title">Highest Scoring Regular Seasons (PPG)</div>
-      <div class="table-wrap mini-table">
-        <table>
-          <thead><tr><th>Team</th><th>Season</th><th>PPG</th><th>G</th></tr></thead>
-          <tbody>${highPPG.map(rowPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="mini">
-      <div class="mini-title">Lowest Scoring Regular Seasons (PPG)</div>
-      <div class="table-wrap mini-table">
-        <table>
-          <thead><tr><th>Team</th><th>Season</th><th>PPG</th><th>G</th></tr></thead>
-          <tbody>${lowPPG.map(rowPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Season</th><th>PA</th><th>G</th></tr></thead>
+          <tbody>${byPA_Asc.map(rowPA).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
 
     <div class="mini">
-      <div class="mini-title">Luckiest 5 Seasons</div>
+      <div class="mini-title">Most Playoff Wins (Top 5)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>Luck (Act − Exp)</th><th>Details</th></tr></thead>
-          <tbody>${luckiest.map(rowLuck).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Playoff Wins</th></tr></thead>
+          <tbody>${playoffs.map(rowPO).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-title">Head-to-Head Win % Leaders (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Opponent</th><th>Win %</th><th>Record (G)</th></tr></thead>
+          <tbody>${pairs.map(rowPair).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-title">Most “Weekly Top Score” Awards (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Awards</th></tr></thead>
+          <tbody>${topW.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Unluckiest 5 Seasons</div>
+      <div class="mini-title">Most “Weekly Low Score” Awards (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>Luck (Act − Exp)</th><th>Details</th></tr></thead>
-          <tbody>${unluckiest.map(rowLuck).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Awards</th></tr></thead>
+          <tbody>${lowW.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Most 150+ Point Games (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Games</th></tr></thead>
+          <tbody>${high150.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
   `;
 }
-
 function renderFunFacts(team, games){
   if (team === ALL_TEAMS) { renderFunFactsAllTeams(); renderFunListsAllTeams(); return; }
   const box = document.getElementById('funFacts');
@@ -1078,7 +1255,7 @@ function renderFunFacts(team, games){
   ].join("");
 
   const row = (r)=>`<tr>
-    <td>${r.pf.toFixed(2)} – ${r.pa.toFixed(2)}</td>
+    <td>${nfmt(r?.pf, 2)} – ${r.pa.toFixed(2)}</td>
     <td>${r.opp}</td>
     <td>${r.date}</td>
   </tr>`;
@@ -1182,7 +1359,7 @@ function renderOppBreakdown(team, games){
         <td>${r.team}</td>
         <td>${r.w}-${r.l}-${r.t}</td>
         <td>${fmtPct(r.w,r.l,r.t)}</td>
-        <td>${r.ppg.toFixed(2)}</td>
+        <td>${nfmt(r?.ppg, 2)}</td>
         <td>${r.oppg.toFixed(2)}</td>
         <td>${r.n}</td>
       </tr>
@@ -1245,7 +1422,7 @@ function renderOppBreakdown(team, games){
       <td>${r.opp}</td>
       <td>${r.w}-${r.l}-${r.t}</td>
       <td>${fmtPct(r.w,r.l,r.t)}</td>
-      <td>${r.ppg.toFixed(2)}</td>
+      <td>${nfmt(r?.ppg, 2)}</td>
       <td>${r.oppg.toFixed(2)}</td>
       <td>${r.n}</td>
     </tr>
@@ -1395,7 +1572,7 @@ function renderWeekByWeek(team, games){
       <td>${r.date}</td>
       <td>${r.opp}</td>
       <td>${r.result}</td>
-      <td class="score-cell">${r.pf.toFixed(2)} - ${r.pa.toFixed(2)} ${badges}</td>
+      <td class="score-cell">${nfmt(r?.pf, 2)} - ${r.pa.toFixed(2)} ${badges}</td>
       <td>${(r.xw===null || r.xw===undefined) ? '—' : r.xw.toFixed(2)}</td>
       <td>${r.type}</td>
       <td>${r.round||''}</td>
@@ -1501,5 +1678,4 @@ if (typeof module !== 'undefined' && module.exports) {
     deriveWeeksInPlace,
     computeRegularSeasonChampYears,
     canonicalGameKey
-  };
-}
+  }};
