@@ -1120,6 +1120,24 @@ function renderFunListsAllTeams(){
   const lows    = bottomNWeeklyScoresAllTeams(10);
   const streaks = longestWinStreaksAllTeams(10);
   const seasons = seasonAggregatesAllTeams();
+  // Luckiest/Unluckiest Seasons (min games = 8)
+  const luckPool = seasons.filter(r => r.n >= 8 && Number.isFinite(+r.luck));
+  const luckiestSeasons = [...luckPool]
+    .sort((a,b)=> b.luck - a.luck || b.season - a.season)
+    .slice(0,10);
+  const unluckiestSeasons = [...luckPool]
+    .sort((a,b)=> a.luck - b.luck || a.season - b.season)
+    .slice(0,10);
+  const rowLuckSeason = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${Number.isFinite(+r.luck)?(+r.luck).toFixed(2):'—'}</td></tr>`;
+  // Best/Worst Regular Seasons by record (min games = 8)
+  const validSeasons = seasons.filter(r => r.n >= 8);
+  const bestSeasonsByRec = [...validSeasons]
+    .sort((a,b)=> b.pct - a.pct || b.w - a.w || a.l - b.l || b.season - a.season)
+    .slice(0,10);
+  const worstSeasonsByRec = [...validSeasons]
+    .sort((a,b)=> a.pct - b.pct || a.w - b.w || b.l - a.l || a.season - b.season)
+    .slice(0,10);
+  const rowRec = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''}</td></tr>`;
 
   // Local helpers
   const n = (x,d=2)=> Number.isFinite(+x) ? (+x).toFixed(d) : "—";
@@ -1133,7 +1151,30 @@ function renderFunListsAllTeams(){
   const rowLow  = (r) => `<tr><td>${n(r.pf,2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
   const rowStk  = (r) => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`;
 
-  // --- Highest Scoring Regular Seasons (PPG) ---
+    // Unluckiest/Luckiest Games (Regular season only)
+  const mostPtsInLoss = [];
+  const fewestPtsInWin = [];
+  for (const g of leagueGames){
+    if (!isRegularGame(g)) continue;
+    const aWins = g.scoreA > g.scoreB;
+    const bWins = g.scoreB > g.scoreA;
+    if (aWins){
+      fewestPtsInWin.push({ winner:g.teamA, loser:g.teamB, wScore:+g.scoreA, lScore:+g.scoreB, date:g.date });
+      mostPtsInLoss.push({ winner:g.teamA, loser:g.teamB, wScore:+g.scoreA, lScore:+g.scoreB, date:g.date });
+    } else if (bWins){
+      fewestPtsInWin.push({ winner:g.teamB, loser:g.teamA, wScore:+g.scoreB, lScore:+g.scoreA, date:g.date });
+      mostPtsInLoss.push({ winner:g.teamB, loser:g.teamA, wScore:+g.scoreB, lScore:+g.scoreA, date:g.date });
+    }
+  }
+  const topUnluckyGames = mostPtsInLoss
+    .sort((a,b)=> b.lScore - a.lScore || a.date.localeCompare(b.date))
+    .slice(0,10);
+  const topLuckyGames   = fewestPtsInWin
+    .sort((a,b)=> a.wScore - b.wScore || a.date.localeCompare(b.date))
+    .slice(0,10);
+  const rowLuckGameLoss = (r)=> `<tr><td>${r.wScore.toFixed(2)}–${r.lScore.toFixed(2)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}</td></tr>`;
+  const rowLuckGameWin  = (r)=> `<tr><td>${r.wScore.toFixed(2)}–${r.lScore.toFixed(2)}</td><td>${r.winner} vs ${r.loser}</td><td>${r.date}</td></tr>`;
+// --- Highest Scoring Regular Seasons (PPG) ---
   const mostPPG = [...seasons].sort((a,b)=> b.ppg - a.ppg || b.season - a.season).slice(0,10);
   const rowPPG = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${n(r.ppg,2)}</td><td>${r.n}</td></tr>`;
 
@@ -1150,7 +1191,7 @@ function renderFunListsAllTeams(){
   const rowCount = (r) => `<tr><td>${r.team}</td><td>${r.count}</td></tr>`;
 
   // --- Sub-65 games (regular season only) ---
-  const sub65 = sub65GamesPerTeam(65).sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+  const sub65 = sub65GamesPerTeam(70).sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
 
   // --- Playoff-only datasets ---
   const playoffSingles = []; // single-team scoring rows
@@ -1228,6 +1269,25 @@ function renderFunListsAllTeams(){
       </div>
     </div>
     <div class="mini">
+      <div class="mini-title">Unluckiest Games (Most Points in a Loss) — Top 10</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${topUnluckyGames.map(rowLuckGameLoss).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Luckiest Games (Fewest Points in a Win) — Top 10</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${topLuckyGames.map(rowLuckGameWin).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
       <div class="mini-title">Longest Winning Streaks (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
@@ -1237,7 +1297,45 @@ function renderFunListsAllTeams(){
       </div>
     </div>
 
+    
     <div class="mini">
+      <div class="mini-title">Best Regular Seasons (By Record) — Top 10</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Record</th></tr></thead>
+          <tbody>${bestSeasonsByRec.map(rowRec).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Worst Regular Seasons (By Record) — Top 10</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Record</th></tr></thead>
+          <tbody>${worstSeasonsByRec.map(rowRec).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Luckiest Regular Seasons (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Luck</th></tr></thead>
+          <tbody>${luckiestSeasons.map(rowLuckSeason).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Unluckiest Regular Seasons (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Luck</th></tr></thead>
+          <tbody>${unluckiestSeasons.map(rowLuckSeason).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+<div class="mini">
       <div class="mini-title">Highest Scoring Regular Seasons (PPG) — Top 10</div>
       <div class="table-wrap mini-table">
         <table>
@@ -1306,7 +1404,7 @@ function renderFunListsAllTeams(){
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Most Sub-65 Point Games (Top 10)</div>
+      <div class="mini-title">Most Sub-70 Point Games (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Team</th><th>Games</th></tr></thead>
