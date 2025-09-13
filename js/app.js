@@ -50,7 +50,7 @@ function nfmt(x, d=2){
 /* ---------- League-wide computed helpers (added) ---------- */
 
 // Count sub-65 point games per team (regular season only)
-function sub70GamesPerTeam(threshold=65){
+function sub65GamesPerTeam(threshold=65){
   const count = new Map();
   for (const g of leagueGames){
     if (!isRegularGame(g)) continue;
@@ -1020,7 +1020,7 @@ function renderFunListsAllTeams(){
   const rowCount = (r) => `<tr><td>${r.team}</td><td>${r.count}</td></tr>`;
 
   // --- Sub-65 games (regular season only) ---
-  const sub70 = sub70GamesPerTeam(70).sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+  const sub65 = sub65GamesPerTeam(65).sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
 
   // --- Playoff-only datasets ---
   const playoffSingles = []; // single-team scoring rows
@@ -1176,11 +1176,11 @@ function renderFunListsAllTeams(){
       </div>
     </div>
     <div class="mini">
-      <div class="mini-title">Most Sub-70 Point Games (Top 10)</div>
+      <div class="mini-title">Most Sub-65 Point Games (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Team</th><th>Games</th></tr></thead>
-          <tbody>${sub70.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+          <tbody>${sub65.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1207,7 +1207,7 @@ function renderFunListsAllTeams(){
       <div class="mini-title">Biggest Avg Playoff Point Diff — Championship Seasons (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>Avg Margin</th><th>PO Games</th></tr></thead>
+          <thead><tr><th>Team</th><th>Season</th><th>Avg Margin (PPG)</th><th>PO Games</th></tr></thead>
           <tbody>${topAvgWinDiff.map(rowAvgPO).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
