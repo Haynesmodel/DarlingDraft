@@ -477,7 +477,7 @@ function renderHistory(){
   renderTopHighlights(selectedTeam);
 
   const filtered = applyFacetFilters(leagueGames);
-  renderAggStats(selectedTeam, filtered);
+  // removed: Stats Overview
   renderFunFacts(selectedTeam, filtered);
   renderOppBreakdown(selectedTeam, filtered);
   renderSeasonRecap(selectedTeam);
@@ -634,6 +634,68 @@ function weekLabelFor(team, g){
   return wk ? `Wk ${wk} ${g.season}` : `${g.season}`;
 }
 
+// Build a flat list of single-week scoring rows across ALL teams/games,
+// excluding 2014 double-week playoffs (reuse your existing isTwoWeek2014).
+function leagueRowsSingleWeeks(){
+  const rows = [];
+  for (const g of leagueGames) {
+    if (typeof isTwoWeek2014 === 'function' && isTwoWeek2014(g)) continue; // 2014 2-week playoff
+    rows.push({ team: g.teamA, pf: g.scoreA, pa: g.scoreB, opp: g.teamB, date: g.date, season: Number(g.season || g.year) || null, g });
+    rows.push({ team: g.teamB, pf: g.scoreB, pa: g.scoreA, opp: g.teamA, date: g.date, season: Number(g.season || g.year) || null, g });
+  }
+  return rows;
+}
+
+function topNWeeklyScoresAllTeams(n=5){
+  return leagueRowsSingleWeeks()
+    .sort((a,b)=> b.pf - a.pf || a.team.localeCompare(b.team))
+    .slice(0, n);
+}
+
+function bottomNWeeklyScoresAllTeams(n=5){
+  return leagueRowsSingleWeeks()
+    .sort((a,b)=> a.pf - b.pf || a.team.localeCompare(b.team))
+    .slice(0, n);
+}
+
+// Gather unique team names from leagueGames (A/B sides)
+function teamsFromLeagueGames(){
+  const set = new Set();
+  for (const g of leagueGames) {
+    if (g.teamA) set.add(g.teamA);
+    if (g.teamB) set.add(g.teamB);
+  }
+  return Array.from(set).sort();
+}
+
+// Longest winning streaks across the league (no ties/losses included)
+function longestWinStreaksAllTeams(n=5){
+  const results = [];
+  for (const team of teamsFromLeagueGames()) {
+    const tg = leagueGames
+      .map(g => ({ g, s: sidesForTeam(g, team) }))
+      .filter(x => x.s)
+      .sort((a,b)=> new Date(a.g.date) - new Date(b.g.date));
+
+    let cur=0, best=0, start=null, bestStart=null, bestEnd=null;
+    for (const {g,s} of tg) {
+      if (s.result === 'W') {
+        if (cur === 0) start = g.date;
+        cur++;
+        if (cur > best) { best = cur; bestStart = start; bestEnd = g.date; }
+      } else {
+        // ties & losses break the win streak
+        cur = 0; start = null;
+      }
+    }
+    if (best > 0) results.push({ team, len: best, start: bestStart, end: bestEnd });
+  }
+  return results
+    .sort((a,b)=> b.len - a.len || a.team.localeCompare(b.team))
+    .slice(0, n);
+}
+
+
 function expectedWinForGame(team, g){
   // Use REGULAR-SEASON games on the same date/season; denominator = opponents that date
   if (!isRegularGame(g)) return null;
@@ -677,16 +739,96 @@ function luckSummary(team, games){
   return { exp, act, luck: act - exp };
 }
 
+
+
+function renderFunFactsAllTeams(){
+  const el = document.getElementById('funFacts');
+  if (!el) return;
+
+  const top = topNWeeklyScoresAllTeams(1)[0];
+  const low = bottomNWeeklyScoresAllTeams(1)[0];
+  const stk = longestWinStreaksAllTeams(1)[0];
+
+  const tile = (label, val, sub="") => `
+    <div class="stat">
+      <div class="label">${label}</div>
+      <div class="value">${val}</div>
+      ${sub ? `<div class="label" style="margin-top:4px">${sub}</div>` : ""}
+    </div>
+  `;
+
+  el.innerHTML = [
+    tile("Highest Weekly Score",
+         top ? top.pf.toFixed(2) : "—",
+         top ? `${top.team} vs ${top.opp} (${top.date})` : ""),
+    tile("Lowest Weekly Score",
+         low ? low.pf.toFixed(2) : "—",
+         low ? `${low.team} vs ${low.opp} (${low.date})` : ""),
+    tile("Longest Winning Streak",
+         stk ? stk.len : "—",
+         stk ? `${stk.team} (${stk.start} → ${stk.end})` : "")
+  ].join("");
+}
+
+
+
+function renderFunListsAllTeams(){
+  const el = document.getElementById('funLists');
+  if (!el) return;
+
+  const highs   = topNWeeklyScoresAllTeams(5);
+  const lows    = bottomNWeeklyScoresAllTeams(5);
+  const streaks = longestWinStreaksAllTeams(5);
+
+  const rowHigh = (r) => `
+    <tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>
+  `;
+  const rowLow  = (r) => `
+    <tr><td>${r.pf.toFixed(2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>
+  `;
+  const rowStk  = (r) => `
+    <tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>
+  `;
+
+  el.innerHTML = `
+    <div class="mini">
+      <div class="mini-title">Top 5 Highest Scoring Games</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${highs.map(rowHigh).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Bottom 5 Lowest Scoring Games</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${lows.map(rowLow).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Longest Winning Streaks</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Length</th><th>Team</th><th>Range</th></tr></thead>
+          <tbody>${streaks.map(rowStk).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+
 function renderFunFacts(team, games){
+  if (team === ALL_TEAMS) { renderFunFactsAllTeams(); renderFunListsAllTeams(); return; }
   const box = document.getElementById('funFacts');
   const lists = document.getElementById('funLists');
   if(!box || !lists) return;
 
-  if(team===ALL_TEAMS){
-    box.innerHTML = `<div class="stat"><div class="label">League View</div><div class="value">Pick a team</div></div>`;
-    lists.innerHTML = "";
-    return;
-  }
+  
 
   let hi = null;
   let blow = null;
