@@ -76,57 +76,62 @@ function longestLosingStreaksAllTeams(n=10){
     .slice(0, n);
 }
 
-// Season aggregates (regular season only) - reused
-if (typeof seasonAggregatesAllTeams !== 'function') {
-  function seasonAggregatesAllTeams(){
-    const map = new Map();
-    if (Array.isArray(seasonSummaries)) {
-      for (const r of seasonSummaries) {
-        const key = `${r.owner}|${r.season}`;
-        if (!map.has(key)) {
-          map.set(key, {
-            team: r.owner, season: +r.season,
-            w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0
-          });
-        }
+
+// Season aggregates (regular season only) - unified & fixed
+function seasonAggregatesAllTeams(){
+  const map = new Map();
+
+  if (Array.isArray(seasonSummaries)) {
+    for (const r of seasonSummaries) {
+      const key = `${r.owner}|${r.season}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          team: r.owner, season: +r.season,
+          w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0
+        });
       }
     }
-    for (const g of leagueGames) {
-      if (!isRegularGame(g)) continue;
-      const season = +g.season;
-      { // A
-        const key = `${g.teamA}|${season}`;
-        if (!map.has(key)) map.set(key, { team:g.teamA, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
-        const r = map.get(key);
-        r.n += 1; r.pf += g.scoreA; r.pa += g.scoreB;
-        if (g.scoreA > g.scoreB) { r.w += 1; r.actWins += 1; }
-        else if (g.scoreA < g.scoreB) { r.l += 1; }
-        else { r.t += 1; r.actWins += 0.5; }
-        const xw = expectedWinForGame(g.teamA, g); if (xw!==null) r.expWins += xw;
-      }
-      { // B
-        const key = `${g.teamB}|${season}`;
-        if (!map.has(key)) map.set(key, { team:g.teamB, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
-        const r = map.get(key);
-        r.n += 1; r.pf += g.scoreB; r.pa += g.scoreA;
-        if (g.scoreB > g.scoreA) { r.w += 1; r.actWins += 1; }
-        else if (g.scoreB < g.scoreA) { r.l += 1; }
-        else { r.t += 1; r.actWins += 0.5; }
-        const xw = expectedWinForGame(g.teamB, g); if (xw!==null) r.expWins += xw;
-      }
-    }
-    const out = [];
-    for (const r of map.values()) {
-      const pct = (r.w + 0.5*r.t) / Math.max(1, (r.w + r.l + r.t));
-      const ppg = r.n ? (r.pf / r.n) : 0;
-      const oppg = r.n ? (r.pa / r.n) : 0;
-      const luck = r.actWins - r.expWins;
-      const diff = r.pf - r.pa;
-      out.push({ ...r, pct, ppg, oppg, luck, diff });
-    }
-    return out;
   }
+
+  for (const g of leagueGames) {
+    if (!isRegularGame(g)) continue;
+    const season = +g.season;
+    { // A side
+      const key = `${g.teamA}|${season}`;
+      if (!map.has(key)) map.set(key, { team:g.teamA, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+      const r = map.get(key);
+      r.n += 1; r.pf += +g.scoreA; r.pa += +g.scoreB;
+      if (g.scoreA > g.scoreB) { r.w += 1; r.actWins += 1; }
+      else if (g.scoreA < g.scoreB) { r.l += 1; }
+      else { r.t += 1; r.actWins += 0.5; }
+      const xw = expectedWinForGame(g.teamA, g); if (xw!==null) r.expWins += xw;
+    }
+    { // B side
+      const key = `${g.teamB}|${season}`;
+      if (!map.has(key)) map.set(key, { team:g.teamB, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
+      const r = map.get(key);
+      r.n += 1; r.pf += +g.scoreB; r.pa += +g.scoreA;
+      if (g.scoreB > g.scoreA) { r.w += 1; r.actWins += 1; }
+      else if (g.scoreB < g.scoreA) { r.l += 1; }
+      else { r.t += 1; r.actWins += 0.5; }
+      const xw = expectedWinForGame(g.teamB, g); if (xw!==null) r.expWins += xw;
+    }
+  }
+
+  const out = [];
+  for (const r of map.values()) {
+    const games = (r.w + r.l + r.t);
+    const pct = games ? (r.w + 0.5*r.t) / games : 0;
+    const ppg = r.n ? (r.pf / r.n) : 0;
+    const oppg = r.n ? (r.pa / r.n) : 0;
+    const luck = r.actWins - r.expWins;
+    const diff = r.pf - r.pa;
+    out.push({ ...r, pct, ppg, oppg, luck, diff });
+  }
+  return out;
 }
+
+
 
 // Build head-to-head records per pair
 function headToHeadPairs(minGames=5){
@@ -828,69 +833,7 @@ function teamsFromLeagueGames(){
 
 
 
-/* ---------- League-wide season aggregates (regular season only) ---------- */
-function seasonAggregatesAllTeams(){
-  // Map key: `${team}|${season}`
-  const map = new Map();
 
-  // initialize from seasonSummaries to ensure seasons/owners present even if no games matched filters
-  if (Array.isArray(seasonSummaries)) {
-    for (const r of seasonSummaries) {
-      const key = `${r.owner}|${r.season}`;
-      if (!map.has(key)) {
-        map.set(key, {
-          team: r.owner,
-          season: +r.season,
-          w: 0, l: 0, t: 0, n: 0,
-          pf: 0, pa: 0,
-          actWins: 0, expWins: 0
-        });
-      }
-    }
-  }
-
-  for (const g of leagueGames) {
-    if (!isRegularGame(g)) continue; // regular season only
-    const season = +g.season;
-    // team A side
-    {
-      const key = `${g.teamA}|${season}`;
-      if (!map.has(key)) map.set(key, { team:g.teamA, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
-      const r = map.get(key);
-      r.n += 1;
-      r.pf += g.scoreA; r.pa += g.scoreB;
-      if (g.scoreA > g.scoreB) { r.w += 1; r.actWins += 1; }
-      else if (g.scoreA < g.scoreB) { r.l += 1; }
-      else { r.t += 1; r.actWins += 0.5; }
-      const xw = expectedWinForGame(g.teamA, g);
-      if (xw !== null) r.expWins += xw;
-    }
-    // team B side
-    {
-      const key = `${g.teamB}|${season}`;
-      if (!map.has(key)) map.set(key, { team:g.teamB, season, w:0,l:0,t:0,n:0,pf:0,pa:0, actWins:0, expWins:0 });
-      const r = map.get(key);
-      r.n += 1;
-      r.pf += g.scoreB; r.pa += g.scoreA;
-      if (g.scoreB > g.scoreA) { r.w += 1; r.actWins += 1; }
-      else if (g.scoreB < g.scoreA) { r.l += 1; }
-      else { r.t += 1; r.actWins += 0.5; }
-      const xw = expectedWinForGame(g.teamB, g);
-      if (xw !== null) r.expWins += xw;
-    }
-  }
-
-  // finalize computed fields
-  const out = [];
-  for (const r of map.values()) {
-    const pct = (r.w + 0.5*r.t) / Math.max(1, (r.w + r.l + r.t));
-    const ppg = r.n ? (r.pf / r.n) : 0;
-    const oppg = r.n ? (r.pa / r.n) : 0;
-    const luck = r.actWins - r.expWins;
-    out.push({ ...r, pct, ppg, oppg, luck });
-  }
-  return out;
-}
 
 
 function longestWinStreaksAllTeams(n=5){
@@ -978,8 +921,8 @@ function renderFunFactsAllTeams(){
   const bestRec = valid.slice().sort((a,b)=> b.pct - a.pct || b.w - a.w)[0] || null;
   const worstRec = valid.slice().sort((a,b)=> a.pct - b.pct || a.w - b.w)[0] || null;
 
-  const bestDiff = seasons.slice().sort((a,b)=> (b.diff - a.diff) || b.season - a.season)[0] || null;
-  const worstDiff = seasons.slice().sort((a,b)=> (a.diff - b.diff) || a.season - b.season)[0] || null;
+  const bestDiff = valid.slice().sort((a,b)=> (b.diff - a.diff) || b.season - a.season)[0] || null;
+  const worstDiff = valid.slice().sort((a,b)=> (a.diff - b.diff) || a.season - b.season)[0] || null;
 
   const winStk = (typeof longestWinStreaksAllTeams==='function' && longestWinStreaksAllTeams(1)[0]) || null;
   const loseStk = (typeof longestLosingStreaksAllTeams==='function' && longestLosingStreaksAllTeams(1)[0]) || null;
@@ -1001,17 +944,13 @@ function renderFunFactsAllTeams(){
   `;
 
   el.innerHTML = [
-    tile("Best Single-Season Record",
-         bestRec ? `${nfmt(bestRec.pct*100, 1)}%` : "—",
-         bestRec ? `${bestRec.team} • ${bestRec.season} • ${fmtRec(bestRec)}` : ""),
-    tile("Worst Single-Season Record",
-         worstRec ? `${nfmt(worstRec.pct*100, 1)}%` : "—",
-         worstRec ? `${worstRec.team} • ${worstRec.season} • ${fmtRec(worstRec)}` : ""),
+    tile("Best Single-Season Record", bestRec ? `${fmtRec(bestRec)}` : "—", bestRec ? `${bestRec.team} • ${bestRec.season} • ${nfmt(bestRec.pct*100,1)}%` : ""),
+    tile("Worst Single-Season Record", worstRec ? `${fmtRec(worstRec)}` : "—", worstRec ? `${worstRec.team} • ${worstRec.season} • ${nfmt(worstRec.pct*100,1)}%` : ""),
     tile("Best Season Point Diff",
-         bestDiff ? `${nfmt(bestDiff.diff, 0)}` : "—",
+         bestDiff ? `${(+bestDiff.diff>=0?"+":"")}${nfmt(bestDiff.diff, 0)}` : "—",
          bestDiff ? `${bestDiff.team} • ${bestDiff.season} • PF ${nfmt(bestDiff.pf,0)} / PA ${nfmt(bestDiff.pa,0)}` : ""),
     tile("Worst Season Point Diff",
-         worstDiff ? `${nfmt(worstDiff.diff, 0)}` : "—",
+         worstDiff ? `${(+worstDiff.diff>=0?"+":"")}${nfmt(worstDiff.diff, 0)}` : "—",
          worstDiff ? `${worstDiff.team} • ${worstDiff.season} • PF ${nfmt(worstDiff.pf,0)} / PA ${nfmt(worstDiff.pa,0)}` : ""),
     tile("Longest Winning Streak",
          winStk ? `${winStk.len}` : "—",

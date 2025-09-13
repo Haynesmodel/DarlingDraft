@@ -162,9 +162,9 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 
 /* Fun Fact Tiles */
 #funFacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(120px, 1fr));
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -225,4 +225,11 @@ tbody tr:nth-child(even){background:var(--row-alt)}
 
 #seasonRecapTable td:last-child::before {
   content: "📜 ";
+}
+
+@media (max-width: 1200px){
+  #funFacts{ grid-template-columns: repeat(4, minmax(120px,1fr)); }
+}
+@media (max-width: 700px){
+  #funFacts{ grid-template-columns: repeat(2, minmax(120px,1fr)); }
 }
