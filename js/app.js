@@ -49,6 +49,17 @@ function nfmt(x, d=2){
 
 /* ---------- League-wide computed helpers (added) ---------- */
 
+// Count sub-65 point games per team (regular season only)
+function sub70GamesPerTeam(threshold=65){
+  const count = new Map();
+  for (const g of leagueGames){
+    if (!isRegularGame(g)) continue;
+    if (+g.scoreA < threshold) count.set(g.teamA, (count.get(g.teamA)||0)+1);
+    if (+g.scoreB < threshold) count.set(g.teamB, (count.get(g.teamB)||0)+1);
+  }
+  return Array.from(count.entries()).map(([team, cnt])=>({team, count: cnt}));
+}
+
 // Longest losing streaks across all teams
 function longestLosingStreaksAllTeams(n=10){
   const results = [];
@@ -968,40 +979,104 @@ function renderFunFactsAllTeams(){
 }
 
 
+
+
 function renderFunListsAllTeams(){
   const el = document.getElementById('funLists');
   if (!el) return;
 
-  // Existing expanded to 10
+  // Core datasets
   const highs   = topNWeeklyScoresAllTeams(10);
   const lows    = bottomNWeeklyScoresAllTeams(10);
   const streaks = longestWinStreaksAllTeams(10);
-
   const seasons = seasonAggregatesAllTeams();
 
-  const rowHigh = (r) => `<tr><td>${nfmt(r?.pf, 2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
-  const rowLow  = (r) => `<tr><td>${nfmt(r?.pf, 2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  // Local helpers
+  const n = (x,d=2)=> Number.isFinite(+x) ? (+x).toFixed(d) : "—";
+  const isPlayoff = (g)=> {
+    const t = (g.type||'').toLowerCase();
+    return t && t!=='regular' && !t.includes('saunders');
+  };
+
+  // Row renderers for existing tables
+  const rowHigh = (r) => `<tr><td>${n(r.pf,2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowLow  = (r) => `<tr><td>${n(r.pf,2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
   const rowStk  = (r) => `<tr><td>${r.len}</td><td>${r.team}</td><td>${r.start} → ${r.end}</td></tr>`;
 
-  // PA season lists
-  const byPA_Desc = [...seasons].sort((a,b)=> b.pa - a.pa || b.season - a.season).slice(0,10);
-  const byPA_Asc  = [...seasons].sort((a,b)=> a.pa - b.pa || a.season - b.season).slice(0,10);
-  const rowPA = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${nfmt(r?.pa, 0)}</td><td>${r.n}</td></tr>`;
+  // --- Highest Scoring Regular Seasons (PPG) ---
+  const mostPPG = [...seasons].sort((a,b)=> b.ppg - a.ppg || b.season - a.season).slice(0,10);
+  const rowPPG = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${n(r.ppg,2)}</td><td>${r.n}</td></tr>`;
 
-  // Playoff wins (Top 5)
-  const playoffs = playoffWinsPerTeam().sort((a,b)=> b.wins - a.wins || a.team.localeCompare(b.team)).slice(0,5);
-  const rowPO = (r) => `<tr><td>${r.team}</td><td>${r.wins}</td></tr>`;
+  // --- OPPG lists (points allowed per game) ---
+  const byOPPG_Desc = [...seasons].sort((a,b)=> b.oppg - a.oppg || b.season - a.season).slice(0,10);
+  const byOPPG_Asc  = [...seasons].sort((a,b)=> a.oppg - b.oppg || a.season - b.season).slice(0,10);
+  const rowOPPG = (r) => `<tr><td>${r.team}</td><td>${r.season}</td><td>${n(r.oppg,2)}</td><td>${r.n}</td></tr>`;
 
-  // Head-to-Head Win % Leaders (Top 10) among pairs (min 5 games)
-  const pairs = headToHeadPairs(5).sort((a,b)=> b.pct - a.pct || b.g - a.g).slice(0,10);
-  const rowPair = (r) => `<tr><td>${r.team}</td><td>${r.opp}</td><td>${(r.pct*100).toFixed(1)}%</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''} (${r.g})</td></tr>`;
-
-  // Weekly awards
+  // --- Weekly awards & 150+ ---
   const wa = weeklyAwards();
   const topW = wa.top.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
   const lowW = wa.low.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
   const high150 = wa.high150.sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
   const rowCount = (r) => `<tr><td>${r.team}</td><td>${r.count}</td></tr>`;
+
+  // --- Sub-65 games (regular season only) ---
+  const sub70 = sub70GamesPerTeam(70).sort((a,b)=> b.count - a.count || a.team.localeCompare(b.team)).slice(0,10);
+
+  // --- Playoff-only datasets ---
+  const playoffSingles = []; // single-team scoring rows
+  const playoffMargins = []; // per-game blowouts
+  const avgMarginBySeason = new Map(); // team|season -> {team, season, sum, games}
+
+  // Champions set for "avg margin" table (championship seasons only)
+  const champions = new Set();
+  if (Array.isArray(seasonSummaries)){
+    for (const r of seasonSummaries){ if (r.champion) champions.add(`${r.owner}|${r.season}`); }
+  }
+
+  for (const g of leagueGames){
+    if (!isPlayoff(g)) continue;
+    if (typeof isTwoWeek2014 === 'function' && isTwoWeek2014(g)) continue;
+
+    // Highest scoring playoff games (single-team)
+    playoffSingles.push({ team: g.teamA, opp: g.teamB, pf: +g.scoreA, date: g.date, season:+g.season });
+    playoffSingles.push({ team: g.teamB, opp: g.teamA, pf: +g.scoreB, date: g.date, season:+g.season });
+
+    // Biggest playoff blowouts (winner margin)
+    const aWins = g.scoreA > g.scoreB;
+    const bWins = g.scoreB > g.scoreA;
+    if (aWins || bWins){
+      const winner = aWins ? g.teamA : g.teamB;
+      const loser  = aWins ? g.teamB : g.teamA;
+      const wScore = aWins ? +g.scoreA : +g.scoreB;
+      const lScore = aWins ? +g.scoreB : +g.scoreA;
+      const margin = wScore - lScore;
+      playoffMargins.push({ winner, loser, margin, date:g.date, season:+g.season, wScore, lScore });
+    }
+
+    // Biggest Avg Playoff Point Diff — Championship Seasons (all playoff games)
+    const season = +g.season;
+    const keyA = `${g.teamA}|${season}`;
+    if (champions.has(keyA)){
+      const curA = avgMarginBySeason.get(keyA) || { team:g.teamA, season, sum:0, games:0 };
+      curA.sum += (+g.scoreA - +g.scoreB); curA.games += 1; avgMarginBySeason.set(keyA, curA);
+    }
+    const keyB = `${g.teamB}|${season}`;
+    if (champions.has(keyB)){
+      const curB = avgMarginBySeason.get(keyB) || { team:g.teamB, season, sum:0, games:0 };
+      curB.sum += (+g.scoreB - +g.scoreA); curB.games += 1; avgMarginBySeason.set(keyB, curB);
+    }
+  }
+
+  const topPlayoffSingles = playoffSingles.sort((a,b)=> b.pf - a.pf || b.season - a.season).slice(0,10);
+  const topPlayoffBlowouts = playoffMargins.sort((a,b)=> b.margin - a.margin || b.season - a.season).slice(0,10);
+  const topAvgWinDiff = Array.from(avgMarginBySeason.values())
+    .map(r => ({...r, avg: r.games ? (r.sum/r.games) : 0}))
+    .sort((a,b)=> b.avg - a.avg || b.season - a.season)
+    .slice(0,10);
+
+  const rowPOHigh = (r)=> `<tr><td>${n(r.pf,2)}</td><td>${r.team} vs ${r.opp}</td><td>${r.date}</td></tr>`;
+  const rowPOBlow = (r)=> `<tr><td>${n(r.margin,2)}</td><td>${r.winner} ${n(r.wScore,0)}–${n(r.lScore,0)} ${r.loser}</td><td>${r.date}</td></tr>`;
+  const rowAvgPO  = (r)=> `<tr><td>${r.team}</td><td>${r.season}</td><td>${n(r.avg,2)}</td><td>${r.games}</td></tr>`;
 
   el.innerHTML = `
     <div class="mini">
@@ -1033,30 +1108,30 @@ function renderFunListsAllTeams(){
     </div>
 
     <div class="mini">
-      <div class="mini-title">Most Points Allowed in a Season (Top 10)</div>
+      <div class="mini-title">Highest Scoring Regular Seasons (PPG) — Top 10</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Season</th><th>PA</th><th>G</th></tr></thead>
-          <tbody>${byPA_Desc.map(rowPA).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="mini">
-      <div class="mini-title">Fewest Points Allowed in a Season (Top 10)</div>
-      <div class="table-wrap mini-table">
-        <table>
-          <thead><tr><th>Team</th><th>Season</th><th>PA</th><th>G</th></tr></thead>
-          <tbody>${byPA_Asc.map(rowPA).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Season</th><th>PPG</th><th>G</th></tr></thead>
+          <tbody>${mostPPG.map(rowPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
 
     <div class="mini">
-      <div class="mini-title">Most Playoff Wins (Top 5)</div>
+      <div class="mini-title">Most Points Allowed per Game in a Season (Top 10)</div>
       <div class="table-wrap mini-table">
         <table>
-          <thead><tr><th>Team</th><th>Playoff Wins</th></tr></thead>
-          <tbody>${playoffs.map(rowPO).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+          <thead><tr><th>Team</th><th>Season</th><th>OPPG</th><th>G</th></tr></thead>
+          <tbody>${byOPPG_Desc.map(rowOPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Fewest Points Allowed per Game in a Season (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>OPPG</th><th>G</th></tr></thead>
+          <tbody>${byOPPG_Asc.map(rowOPPG).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1066,7 +1141,9 @@ function renderFunListsAllTeams(){
       <div class="table-wrap mini-table">
         <table>
           <thead><tr><th>Team</th><th>Opponent</th><th>Win %</th><th>Record (G)</th></tr></thead>
-          <tbody>${pairs.map(rowPair).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
+          <tbody>${headToHeadPairs(5).sort((a,b)=> b.pct - a.pct || b.g - a.g).slice(0,10).map(r => 
+            `<tr><td>${r.team}</td><td>${r.opp}</td><td>${n(r.pct*100,1)}%</td><td>${r.w}-${r.l}${r.t?'-'+r.t:''} (${r.g})</td></tr>`
+          ).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1095,6 +1172,43 @@ function renderFunListsAllTeams(){
         <table>
           <thead><tr><th>Team</th><th>Games</th></tr></thead>
           <tbody>${high150.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Most Sub-70 Point Games (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Games</th></tr></thead>
+          <tbody>${sub70.map(rowCount).join("") || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-title">Highest Scoring Playoff Games (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Score</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${topPlayoffSingles.map(rowPOHigh).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Biggest Playoff Blowouts (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Margin</th><th>Matchup</th><th>Date</th></tr></thead>
+          <tbody>${topPlayoffBlowouts.map(rowPOBlow).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mini">
+      <div class="mini-title">Biggest Avg Playoff Point Diff — Championship Seasons (Top 10)</div>
+      <div class="table-wrap mini-table">
+        <table>
+          <thead><tr><th>Team</th><th>Season</th><th>Avg Margin</th><th>PO Games</th></tr></thead>
+          <tbody>${topAvgWinDiff.map(rowAvgPO).join("") || '<tr><td colspan="4" class="muted">—</td></tr>'}</tbody>
         </table>
       </div>
     </div>
