@@ -7,7 +7,13 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: 'coverage',
       reporter: ['text', 'html', 'lcov'],
-      thresholds: {            // <-- moved here in Vitest v3
+      include: ['js/lib/**/*.js', 'api/**/*.ts'],
+      exclude: [
+        '**/*.test.*',
+        'js/app.js',
+        'js/easter-eggs.js'
+      ],
+      thresholds: {
         lines: 80,
         functions: 80,
         branches: 70,
