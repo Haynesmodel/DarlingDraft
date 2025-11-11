@@ -9425,5 +9425,137 @@
     "week": 8,
     "round": "",
     "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Connor",
+    "teamB": "Shemer",
+    "scoreA": 90.8,
+    "scoreB": 103.32,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Joe",
+    "teamB": "Snare",
+    "scoreA": 78.58,
+    "scoreB": 102.42,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Nuss",
+    "teamB": "Shap",
+    "scoreA": 76.72,
+    "scoreB": 104.7,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Plot",
+    "teamB": "Singer",
+    "scoreA": 153.9,
+    "scoreB": 114.8,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Rishi",
+    "teamB": "Zook",
+    "scoreA": 130.4,
+    "scoreB": 94.46,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-02",
+    "teamA": "Zubs",
+    "teamB": "Joel",
+    "scoreA": 129.76,
+    "scoreB": 71.44,
+    "week": 9,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Connor",
+    "teamB": "Rishi",
+    "scoreA": 109.58,
+    "scoreB": 112.86,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Nuss",
+    "teamB": "Joel",
+    "scoreA": 118.12,
+    "scoreB": 114.32,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Plot",
+    "teamB": "Zook",
+    "scoreA": 111.4,
+    "scoreB": 97.4,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Shap",
+    "teamB": "Snare",
+    "scoreA": 89.42,
+    "scoreB": 63.3,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Singer",
+    "teamB": "Joe",
+    "scoreA": 121.7,
+    "scoreB": 134.7,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-11-09",
+    "teamA": "Zubs",
+    "teamB": "Shemer",
+    "scoreA": 93.94,
+    "scoreB": 70.64,
+    "week": 10,
+    "round": "",
+    "type": "Regular"
   }
 ]
