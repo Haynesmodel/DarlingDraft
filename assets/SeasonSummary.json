@@ -865,7 +865,8 @@
     "saunders": false,
     "bye": false,
     "season": 2020,
-    "owner": "Plot"
+    "owner": "Plot",
+    "wild_card": true
   },
   {
     "wins": 10,
@@ -977,7 +978,8 @@
     "saunders": false,
     "bye": false,
     "season": 2021,
-    "owner": "Zook"
+    "owner": "Zook",
+    "wild_card": true
   },
   {
     "wins": 8,
@@ -1173,7 +1175,8 @@
     "saunders": false,
     "bye": false,
     "season": 2022,
-    "owner": "Nuss"
+    "owner": "Nuss",
+    "wild_card": true
   },
   {
     "wins": 9,
@@ -1285,7 +1288,8 @@
     "saunders": false,
     "bye": false,
     "season": 2023,
-    "owner": "Plot"
+    "owner": "Plot",
+    "wild_card": true
   },
   {
     "wins": 5,
@@ -1453,7 +1457,8 @@
     "saunders": false,
     "bye": false,
     "season": 2024,
-    "owner": "Nuss"
+    "owner": "Nuss",
+    "wild_card": true
   },
   {
     "wins": 10,
