@@ -1515,5 +1515,126 @@
     "bye": false,
     "season": 2024,
     "owner": "Singer"
+  },
+  {
+    "season": 2025,
+    "owner": "Shap",
+    "wins": 10,
+    "losses": 4,
+    "points_for": 1474.92,
+    "points_against": 1298.4,
+    "playoff_wins": 0,
+    "playoff_losses": 1,
+    "bye": true
+  },
+  {
+    "season": 2025,
+    "owner": "Rishi",
+    "wins": 9,
+    "losses": 5,
+    "points_for": 1580.58,
+    "points_against": 1429.44,
+    "playoff_wins": 0,
+    "playoff_losses": 1,
+    "bye": true
+  },
+  {
+    "season": 2025,
+    "owner": "Zubs",
+    "wins": 8,
+    "losses": 6,
+    "points_for": 1413.14,
+    "points_against": 1331.88,
+    "playoff_wins": 0,
+    "playoff_losses": 1,
+    "bye": false
+  },
+  {
+    "season": 2025,
+    "owner": "Nuss",
+    "wins": 8,
+    "losses": 6,
+    "points_for": 1390.3,
+    "points_against": 1484.44,
+    "playoff_wins": 0,
+    "playoff_losses": 1,
+    "bye": false,
+    "wild_card": true
+  },
+  {
+    "season": 2025,
+    "owner": "Singer",
+    "wins": 7,
+    "losses": 7,
+    "points_for": 1493.08,
+    "points_against": 1559.8
+  },
+  {
+    "season": 2025,
+    "owner": "Plot",
+    "wins": 7,
+    "losses": 7,
+    "points_for": 1454.44,
+    "points_against": 1475.94,
+    "saunders_wins": 1,
+    "saunders_losses": 0,
+    "saunders_bye": false
+  },
+  {
+    "season": 2025,
+    "owner": "Zook",
+    "wins": 6,
+    "losses": 8,
+    "points_for": 1515.72,
+    "points_against": 1433.28
+  },
+  {
+    "season": 2025,
+    "owner": "Connor",
+    "wins": 6,
+    "losses": 8,
+    "points_for": 1479.7,
+    "points_against": 1557.3
+  },
+  {
+    "season": 2025,
+    "owner": "Joe",
+    "wins": 6,
+    "losses": 8,
+    "points_for": 1399.94,
+    "points_against": 1461.0,
+    "saunders_wins": 1,
+    "saunders_losses": 0,
+    "saunders_bye": false
+  },
+  {
+    "season": 2025,
+    "owner": "Snare",
+    "wins": 6,
+    "losses": 8,
+    "points_for": 1391.92,
+    "points_against": 1378.54,
+    "saunders_wins": 1,
+    "saunders_losses": 0,
+    "saunders_bye": false
+  },
+  {
+    "season": 2025,
+    "owner": "Shemer",
+    "wins": 6,
+    "losses": 8,
+    "points_for": 1314.42,
+    "points_against": 1362.64
+  },
+  {
+    "season": 2025,
+    "owner": "Joel",
+    "wins": 5,
+    "losses": 9,
+    "points_for": 1397.9,
+    "points_against": 1533.4,
+    "saunders_wins": 1,
+    "saunders_losses": 0,
+    "saunders_bye": true
   }
 ]
