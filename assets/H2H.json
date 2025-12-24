@@ -436,7 +436,7 @@
     "scoreA": 112.5,
     "scoreB": 119.2,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -898,7 +898,7 @@
     "scoreA": 131.7,
     "scoreB": 104.8,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -1360,7 +1360,7 @@
     "scoreA": 82.4,
     "scoreB": 51.8,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -1756,7 +1756,7 @@
     "scoreA": 120.5,
     "scoreB": 122.2,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -2339,7 +2339,7 @@
     "scoreA": 73.3,
     "scoreB": 112.0,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -2504,7 +2504,7 @@
     "scoreA": 77.2,
     "scoreB": 112.7,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -3219,7 +3219,7 @@
     "scoreA": 79.2,
     "scoreB": 106.0,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -3527,7 +3527,7 @@
     "scoreA": 117.0,
     "scoreB": 89.6,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -3659,7 +3659,7 @@
     "scoreA": 117.64,
     "scoreB": 66.0,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -3813,7 +3813,7 @@
     "scoreA": 116.34,
     "scoreB": 68.96,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -3868,7 +3868,7 @@
     "scoreA": 286.8,
     "scoreB": 261.7,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -4396,7 +4396,7 @@
     "scoreA": 114.1,
     "scoreB": 132.9,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -4462,7 +4462,7 @@
     "scoreA": 97.56,
     "scoreB": 120.38,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -4814,7 +4814,7 @@
     "scoreA": 86.1,
     "scoreB": 87.5,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -5551,7 +5551,7 @@
     "scoreA": 116.4,
     "scoreB": 100.6,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -5797,17 +5797,6 @@
     "type": "Playoff"
   },
   {
-    "season": 2024,
-    "date": "2024-12-15",
-    "teamA": "Zook",
-    "teamB": "Shap",
-    "scoreA": 126.76,
-    "scoreB": 91.96,
-    "week": null,
-    "round": "Saunders Round 1",
-    "type": "Saunders"
-  },
-  {
     "season": 2014,
     "date": "2014-09-21",
     "teamA": "Zook",
@@ -5958,7 +5947,7 @@
     "scoreA": 105.12,
     "scoreB": 105.14,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -6662,7 +6651,7 @@
     "scoreA": 87.36,
     "scoreB": 111.7,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -6772,7 +6761,7 @@
     "scoreA": 80.8,
     "scoreB": 96.0,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -6904,7 +6893,7 @@
     "scoreA": 134.94,
     "scoreB": 136.3,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -7190,7 +7179,7 @@
     "scoreA": 103.64,
     "scoreB": 142.92,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -7234,7 +7223,7 @@
     "scoreA": 211.8,
     "scoreB": 178.2,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
@@ -7619,7 +7608,7 @@
     "scoreA": 126.76,
     "scoreB": 91.96,
     "week": null,
-    "round": "Saunders Round 1",
+    "round": "Saunders Semi Final",
     "type": "Saunders"
   },
   {
