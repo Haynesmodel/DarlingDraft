@@ -9821,5 +9821,93 @@
     "week": 14,
     "round": "",
     "type": "Regular"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-14",
+    "teamA": "Connor",
+    "teamB": "Joe",
+    "scoreA": 91.44,
+    "scoreB": 94.1,
+    "week": 15,
+    "round": "Saunders Wild Card",
+    "type": "Saunders"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-14",
+    "teamA": "Plot",
+    "teamB": "Snare",
+    "scoreA": 75.38,
+    "scoreB": 133.1,
+    "week": 15,
+    "round": "Saunders Wild Card",
+    "type": "Saunders"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-14",
+    "teamA": "Singer",
+    "teamB": "Nuss",
+    "scoreA": 153.42,
+    "scoreB": 129.88,
+    "week": 15,
+    "round": "Wild Card",
+    "type": "Playoff"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-14",
+    "teamA": "Zubs",
+    "teamB": "Zook",
+    "scoreA": 90.02,
+    "scoreB": 124.1,
+    "week": 15,
+    "round": "Wild Card",
+    "type": "Playoff"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-21",
+    "teamA": "Connor",
+    "teamB": "Joel",
+    "scoreA": 90.42,
+    "scoreB": 105.2,
+    "week": 16,
+    "round": "Saunders Semi Final",
+    "type": "Saunders"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-21",
+    "teamA": "Plot",
+    "teamB": "Shemer",
+    "scoreA": 107.98,
+    "scoreB": 97.5,
+    "week": 16,
+    "round": "Saunders Semi Final",
+    "type": "Saunders"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-21",
+    "teamA": "Rishi",
+    "teamB": "Zook",
+    "scoreA": 113.86,
+    "scoreB": 143.4,
+    "week": 16,
+    "round": "Semi Final",
+    "type": "Playoff"
+  },
+  {
+    "season": 2025,
+    "date": "2025-12-21",
+    "teamA": "Singer",
+    "teamB": "Shap",
+    "scoreA": 112.96,
+    "scoreB": 101.14,
+    "week": 16,
+    "round": "Semi Final",
+    "type": "Playoff"
   }
 ]
